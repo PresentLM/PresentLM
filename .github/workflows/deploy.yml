@@ -19,6 +19,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: PresentLM-doc/package-lock.json
 
       - name: Install dependencies
         working-directory: PresentLM-doc
@@ -30,7 +31,7 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build
+          path: PresentLM-doc/build
 
   deploy:
     name: Deploy to GitHub Pages
