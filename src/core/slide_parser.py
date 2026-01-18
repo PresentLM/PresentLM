@@ -5,11 +5,11 @@ Supports both text extraction and optional vision-based parsing for image-heavy 
 
 from pathlib import Path
 from typing import List, Dict, Optional
+
+import fitz
 import pymupdf  # PyMuPDF for PDF parsing
 from pptx import Presentation  # python-pptx for PowerPoint
 from dataclasses import dataclass
-import base64
-from io import BytesIO
 
 
 @dataclass
@@ -35,15 +35,17 @@ class Slide:
 class SlideParser:
     """Parse slide decks and extract structured content."""
     
-    def __init__(self, use_vision: bool = False):
+    def __init__(self, use_vision: bool = False, zoom: float = 3.0):
         """
         Initialize slide parser.
         
         Args:
             use_vision: Whether to use vision models for image-heavy slides
+            zoom: Zoom factor for rendering PDF pages as images (higher value = better quality)
         """
         self.use_vision = use_vision
-    
+        self.zoom = zoom
+
     def parse(self, file_path: Path, support_files: Optional[List[Path]] = None) -> List[Slide]:
         """
         Parse a slide deck file.
@@ -81,7 +83,8 @@ class SlideParser:
                 # Optionally extract page as image for vision models
                 image_data = None
                 if self.use_vision:
-                    pix = page.get_pixmap()
+                    mat = fitz.Matrix(self.zoom, self.zoom)  # Use configurable zoom
+                    pix = page.get_pixmap(matrix=mat)
                     image_data = pix.tobytes("png")
                 
                 slides.append(Slide(
@@ -97,7 +100,7 @@ class SlideParser:
         """Parse PowerPoint slide deck."""
         slides = []
         prs = Presentation(file_path)
-        
+
         for slide_num, slide in enumerate(prs.slides, start=1):
             title = ""
             content_parts = []
