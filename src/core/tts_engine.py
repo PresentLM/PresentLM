@@ -19,6 +19,25 @@ class AudioSegment:
     audio_path: Path
     duration: float  # in seconds
     text: str
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "slide_number": self.slide_number,
+            "audio_path": str(self.audio_path),
+            "duration": self.duration,
+            "text": self.text
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'AudioSegment':
+        """Create from dictionary."""
+        return cls(
+            slide_number=data['slide_number'],
+            audio_path=Path(data['audio_path']),
+            duration=data['duration'],
+            text=data['text']
+        )
 
 
 class TTSEngine:

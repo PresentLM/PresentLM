@@ -8,7 +8,10 @@ from .helpers import (
     estimate_audio_duration,
     chunk_text,
     get_timestamp,
-    sanitize_filename
+    sanitize_filename,
+    save_presentation_data,
+    load_presentation_data,
+    get_saved_presentations
 )
 
 __all__ = [
@@ -18,6 +21,12 @@ __all__ = [
     "load_json",
     "format_timestamp",
     "estimate_audio_duration",
+    "chunk_text",
+    "get_timestamp",
+    "sanitize_filename",
+    "save_presentation_data",
+    "load_presentation_data",
+    "get_saved_presentations",
     "chunk_text",
     "get_timestamp",
     "sanitize_filename",

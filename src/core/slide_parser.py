@@ -5,6 +5,7 @@ Supports both text extraction and optional vision-based parsing for image-heavy 
 
 from pathlib import Path
 from typing import List, Dict, Optional
+import base64
 
 import fitz
 import pymupdf  # PyMuPDF for PDF parsing
@@ -28,8 +29,21 @@ class Slide:
             "title": self.title,
             "content": self.content,
             "notes": self.notes,
+            "image_data": base64.b64encode(self.image_data).decode('utf-8') if self.image_data else None,
             "has_image": self.image_data is not None
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'Slide':
+        """Create Slide from dictionary."""
+        image_data = base64.b64decode(data['image_data']) if data.get('image_data') else None
+        return cls(
+            slide_number=data['slide_number'],
+            title=data['title'],
+            content=data['content'],
+            notes=data.get('notes', ""),
+            image_data=image_data
+        )
 
 
 class SlideParser:

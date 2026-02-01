@@ -23,6 +23,15 @@ class SlideNarration:
             "narration_text": self.narration_text,
             "estimated_duration": self.estimated_duration
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SlideNarration':
+        """Create SlideNarration from dictionary."""
+        return cls(
+            slide_number=data['slide_number'],
+            narration_text=data['narration_text'],
+            estimated_duration=data['estimated_duration']
+        )
 
 
 class NarrationGenerator:

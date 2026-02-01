@@ -37,6 +37,68 @@ def format_timestamp(seconds: float) -> str:
     return f"{minutes:02d}:{secs:02d}"
 
 
+def save_presentation_data(timestamp: str, slides: List, narrations: List, audio_segments: List, metadata: Dict, base_dir: Path) -> None:
+    """Save complete presentation data for later loading."""
+    # Save slides
+    slides_data = [slide.to_dict() for slide in slides]
+    save_json({"slides": slides_data}, base_dir / f"{timestamp}_slides.json")
+    
+    # Save narrations
+    narrations_data = [narration.to_dict() for narration in narrations]
+    save_json({"narrations": narrations_data}, base_dir / f"{timestamp}_narrations.json")
+    
+    # Save audio segments info
+    audio_data = [segment.to_dict() for segment in audio_segments] if audio_segments else []
+    save_json({"audio_segments": audio_data}, base_dir / f"{timestamp}_audio.json")
+    
+    # Save metadata
+    save_json(metadata, base_dir / f"{timestamp}_metadata.json")
+
+
+def load_presentation_data(timestamp: str, base_dir: Path) -> Dict:
+    """Load complete presentation data from saved files."""
+    from ..core.slide_parser import Slide
+    from ..core.narration_generator import SlideNarration
+    from ..core.tts_engine import AudioSegment
+    
+    # Load slides
+    slides_data = load_json(base_dir / f"{timestamp}_slides.json")
+    slides = [Slide.from_dict(s) for s in slides_data['slides']]
+    
+    # Load narrations
+    narrations_data = load_json(base_dir / f"{timestamp}_narrations.json")
+    narrations = [SlideNarration.from_dict(n) for n in narrations_data['narrations']]
+    
+    # Load audio segments
+    audio_file = base_dir / f"{timestamp}_audio.json"
+    audio_segments = []
+    if audio_file.exists():
+        audio_data = load_json(audio_file)
+        audio_segments = [AudioSegment.from_dict(a) for a in audio_data['audio_segments']]
+    
+    # Load metadata
+    metadata = load_json(base_dir / f"{timestamp}_metadata.json")
+    
+    return {
+        "slides": slides,
+        "narrations": narrations,
+        "audio_segments": audio_segments,
+        "metadata": metadata
+    }
+
+
+def get_saved_presentations(base_dir: Path) -> List[Dict]:
+    """Get list of all saved presentations."""
+    presentations = []
+    for metadata_file in sorted(base_dir.glob("*_metadata.json"), reverse=True):
+        try:
+            metadata = load_json(metadata_file)
+            presentations.append(metadata)
+        except Exception:
+            continue
+    return presentations
+
+
 def estimate_audio_duration(text: str, words_per_minute: int = 150) -> float:
     """Estimate audio duration based on text length."""
     word_count = len(text.split())

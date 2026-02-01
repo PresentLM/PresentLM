@@ -6,7 +6,6 @@ Maintains context of the current slide and presentation flow.
 from typing import List, Optional, Dict
 from dataclasses import dataclass
 import openai
-from anthropic import Anthropic
 
 from ..utils.config import Config
 from .slide_parser import Slide
@@ -30,17 +29,12 @@ class QuestionHandler:
         Initialize question handler.
         
         Args:
-            provider: LLM provider
+            provider: LLM provider (always uses openai)
             model: Model name
         """
-        self.provider = provider or Config.LLM_PROVIDER
+        self.provider = "openai"
         self.model = model or Config.LLM_MODEL
-        
-        if self.provider == "openai":
-            self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
-        elif self.provider == "anthropic":
-            self.client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
-        
+        self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
         self.conversation_history: List[QuestionAnswer] = []
     
     def answer_question(
@@ -74,12 +68,7 @@ class QuestionHandler:
         )
         
         # Get answer from LLM
-        if self.provider == "openai":
-            answer = self._answer_openai(prompt)
-        elif self.provider == "anthropic":
-            answer = self._answer_anthropic(prompt)
-        else:
-            raise ValueError(f"Unsupported provider: {self.provider}")
+        answer = self._answer_openai(prompt)
         
         # Store in conversation history
         qa = QuestionAnswer(
@@ -126,9 +115,8 @@ USER QUESTION: {question}
 INSTRUCTIONS:
 1. Answer the question clearly and concisely
 2. Reference the current slide content when relevant
-3. If the question is about something not covered yet, mention it will come in later slides
-4. Keep answers focused and suitable for spoken delivery
-5. If you don't know or it's not in the context, say so honestly
+3. Keep answers focused and suitable for spoken delivery
+4. If you don't know or it's not in the context, say so honestly
 
 Provide ONLY the answer, without any meta-commentary."""
         
@@ -158,18 +146,6 @@ Provide ONLY the answer, without any meta-commentary."""
             max_tokens=500  # Shorter answers for questions
         )
         return response.choices[0].message.content.strip()
-    
-    def _answer_anthropic(self, prompt: str) -> str:
-        """Answer using Anthropic Claude."""
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=500,
-            temperature=0.7,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.content[0].text.strip()
     
     def clear_history(self):
         """Clear conversation history."""
