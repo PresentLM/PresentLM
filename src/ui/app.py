@@ -58,6 +58,10 @@ if 'advance_slide' not in st.session_state:
     st.session_state.advance_slide = False
 if 'previous_slide_idx' not in st.session_state:
     st.session_state.previous_slide_idx = 0
+if 'answer_audio_path' not in st.session_state:
+    st.session_state.answer_audio_path = None
+if 'answer_audio_finished' not in st.session_state:
+    st.session_state.answer_audio_finished = False
 
 # Enhanced header
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -568,27 +572,127 @@ def show_presentation_page():
             st.markdown(f"**Q:** {st.session_state.current_question}")
             st.markdown(f"**A:** {st.session_state.current_answer}")
             
-            st.divider()
-            st.markdown("**Was this answer helpful?**")
+            # Play answer audio if available and not in test mode
+            if st.session_state.answer_audio_path and not st.session_state.get('test_mode', True):
+                # Only play if not already finished
+                if not st.session_state.answer_audio_finished:
+                    with open(st.session_state.answer_audio_path, 'rb') as audio_file:
+                        answer_audio_bytes = audio_file.read()
+                        answer_audio_base64 = base64.b64encode(answer_audio_bytes).decode()
+                    
+                    # Auto-play answer audio with completion detection
+                    answer_audio_html = f"""
+                    <div style="margin: 10px 0;">
+                        <audio id="answer-audio" controls autoplay style="width: 100%;">
+                            <source src="data:audio/mpeg;base64,{answer_audio_base64}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                    <script>
+                        (function() {{
+                            const audio = document.getElementById('answer-audio');
+                            audio.addEventListener('ended', function() {{
+                                console.log('Answer audio finished');
+                                localStorage.setItem('answer_audio_finished', 'true');
+                            }});
+                            
+                            // Also check if already finished (e.g. manually stopped)
+                            audio.addEventListener('loadedmetadata', function() {{
+                                if (audio.duration - audio.currentTime < 0.5) {{
+                                    localStorage.setItem('answer_audio_finished', 'true');
+                                }}
+                            }});
+                        }})();
+                    </script>
+                    """
+                    components.html(answer_audio_html, height=70)
+                    
+                    # Check if answer audio finished using button approach
+                    answer_done_btn = st.button(
+                        "answer_done_hidden",
+                        key="answer_audio_done",
+                        type="secondary"
+                    )
+                    
+                    # Polling script to check localStorage and click button
+                    components.html(
+                        """
+                        <script>
+                            (function() {
+                                console.log('Checking answer audio finished flag...');
+                                
+                                function checkAnswerFinished() {
+                                    const finished = localStorage.getItem('answer_audio_finished');
+                                    console.log('Answer audio finished flag:', finished);
+                                    
+                                    if (finished === 'true') {
+                                        console.log('Answer audio finished! Clicking button...');
+                                        localStorage.removeItem('answer_audio_finished');
+                                        
+                                        // Find and click the answer done button, then hide it
+                                        const buttons = window.parent.document.querySelectorAll('button');
+                                        for (let btn of buttons) {
+                                            if (btn.textContent.includes('answer_done_hidden')) {
+                                                console.log('Found answer done button, hiding and clicking...');
+                                                btn.style.display = 'none';
+                                                btn.click();
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Also hide the button immediately on load
+                                const buttons = window.parent.document.querySelectorAll('button');
+                                for (let btn of buttons) {
+                                    if (btn.textContent.includes('answer_done_hidden')) {
+                                        btn.style.display = 'none';
+                                    }
+                                }
+                                
+                                // Check every 500ms
+                                setInterval(checkAnswerFinished, 500);
+                                checkAnswerFinished();
+                            })();
+                        </script>
+                        """,
+                        height=0
+                    )
+                    
+                    if answer_done_btn:
+                        st.session_state.answer_audio_finished = True
+                        st.rerun()
+            else:
+                # In test mode or no audio, mark as finished immediately
+                st.session_state.answer_audio_finished = True
             
-            col_yes, col_no = st.columns(2)
-            with col_yes:
-                if st.button("Yes, Continue", type="primary", width="stretch"):
-                    # Resume auto-advance and audio from saved position
-                    st.session_state.is_paused = False
-                    st.session_state.waiting_for_feedback = False
-                    st.session_state.asking_question = False
-                    st.session_state.current_question = None
-                    st.session_state.current_answer = None
-                    st.success("Resuming presentation...")
-                    st.rerun()
-            
-            with col_no:
-                if st.button("No, Ask Again", width="stretch"):
-                    # Keep audio paused, allow follow-up question
-                    st.session_state.waiting_for_feedback = False
-                    st.session_state.current_answer = None
-                    st.rerun()
+            # Show feedback prompt after audio finishes or if in test mode
+            if st.session_state.answer_audio_finished:
+                st.divider()
+                st.markdown("**Was this answer helpful?**")
+                
+                col_yes, col_no = st.columns(2)
+                with col_yes:
+                    if st.button("Yes, Continue", type="primary", width="stretch"):
+                        # Resume auto-advance and audio from saved position
+                        st.session_state.is_paused = False
+                        st.session_state.waiting_for_feedback = False
+                        st.session_state.asking_question = False
+                        st.session_state.current_question = None
+                        st.session_state.current_answer = None
+                        st.session_state.answer_audio_path = None
+                        st.session_state.answer_audio_finished = False
+                        st.success("Resuming presentation...")
+                        st.rerun()
+                
+                with col_no:
+                    if st.button("No, Ask Again", width="stretch"):
+                        # Keep audio paused, allow follow-up question
+                        st.session_state.waiting_for_feedback = False
+                        st.session_state.current_answer = None
+                        st.session_state.answer_audio_path = None
+                        st.session_state.answer_audio_finished = False
+                        st.rerun()
         
         elif st.session_state.asking_question:
             # Question input UI (audio is already paused)
@@ -651,8 +755,30 @@ def show_presentation_page():
                         )
                         
                         st.session_state.current_answer = answer
+                        
+                        # Generate audio for the answer (skip in test mode)
+                        if not st.session_state.get('test_mode', True):
+                            try:
+                                st.info("Converting answer to speech...")
+                                tts = TTSEngine(
+                                    provider="openai",
+                                    voice=st.session_state.get('tts_voice', 'alloy')
+                                )
+                                
+                                # Save answer audio to temp location
+                                import tempfile
+                                answer_audio_path = Path(tempfile.gettempdir()) / f"presentlm_answer_{get_timestamp()}.mp3"
+                                tts.generate_audio(answer, answer_audio_path)
+                                st.session_state.answer_audio_path = answer_audio_path
+                            except Exception as e:
+                                st.warning(f"Could not generate audio for answer: {e}")
+                                st.session_state.answer_audio_path = None
+                        else:
+                            st.session_state.answer_audio_path = None
+                        
                         st.session_state.waiting_for_feedback = True
                         st.session_state.asking_question = False
+                        st.session_state.answer_audio_finished = False
                         st.rerun()
                         
                     except Exception as e:
@@ -693,14 +819,9 @@ def show_presentation_page():
                 type="secondary"
             )
             
-            # Hide the button with CSS and add polling script
+            # Hide the button and add polling script
             components.html(
                 f"""
-                <style>
-                    button[kind="secondary"] {{
-                        display: none !important;
-                    }}
-                </style>
                 <script>
                     (function() {{
                         console.log('Polling script started...');
@@ -713,16 +834,25 @@ def show_presentation_page():
                                 console.log('Audio finished! Clicking advance button...');
                                 localStorage.removeItem('presentlm_audio_finished');
                                 
-                                // Find and click the auto-advance button
+                                // Find and click the auto-advance button, then hide it
                                 const buttons = window.parent.document.querySelectorAll('button');
                                 for (let btn of buttons) {{
                                     if (btn.textContent.includes('auto_advance_hidden')) {{
-                                        console.log('Found button, clicking...');
+                                        console.log('Found button, hiding and clicking...');
+                                        btn.style.display = 'none';
                                         btn.click();
                                         return;
                                     }}
                                 }}
                                 console.log('Button not found!');
+                            }}
+                        }}
+                        
+                        // Also hide the button immediately on load
+                        const buttons = window.parent.document.querySelectorAll('button');
+                        for (let btn of buttons) {{
+                            if (btn.textContent.includes('auto_advance_hidden')) {{
+                                btn.style.display = 'none';
                             }}
                         }}
                         
