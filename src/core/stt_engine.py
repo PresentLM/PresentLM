@@ -8,6 +8,7 @@ import openai
 import io
 
 from ..utils.config import Config
+from ..utils.benchmark import get_benchmark_tracker
 
 
 class STTEngine:
@@ -42,10 +43,32 @@ class STTEngine:
         Returns:
             Transcribed text
         """
+        # Start benchmarking
+        benchmark = get_benchmark_tracker()
+        timer_id = f"transcribe_{id(self)}"
+        benchmark.start_timer(timer_id)
+        
         if self.provider == "openai":
-            return self._transcribe_openai(audio_input)
+            result = self._transcribe_openai(audio_input)
         else:
             raise ValueError(f"Unsupported STT provider: {self.provider}")
+        
+        # End benchmarking
+        duration = benchmark.end_timer(
+            timer_id,
+            component="STTEngine",
+            operation="transcribe",
+            metadata={
+                "provider": self.provider,
+                "model": self.model,
+                "input_type": "bytes" if isinstance(audio_input, bytes) else "file",
+                "transcription_length": len(result)
+            }
+        )
+        
+        print(f"[BENCHMARK] STTEngine.transcribe: {duration:.2f}s ('{result[:50]}...')")
+        
+        return result
     
     def _transcribe_openai(self, audio_input: Union[Path, bytes]) -> str:
         """Transcribe using OpenAI Whisper."""

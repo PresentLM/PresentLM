@@ -10,6 +10,7 @@ import openai
 import asyncio
 
 from ..utils.config import Config
+from ..utils.benchmark import get_benchmark_tracker
 
 
 @dataclass
@@ -74,10 +75,33 @@ class TTSEngine:
         Returns:
             AudioSegment with metadata
         """
+        # Start benchmarking
+        benchmark = get_benchmark_tracker()
+        timer_id = f"generate_audio_{id(self)}"
+        benchmark.start_timer(timer_id)
+        
         if self.provider == "openai":
-            return self._generate_openai(text, output_path, speed)
+            segment = self._generate_openai(text, output_path, speed)
         else:
             raise ValueError(f"Unsupported TTS provider: {self.provider}")
+        
+        # End benchmarking
+        duration = benchmark.end_timer(
+            timer_id,
+            component="TTSEngine",
+            operation="generate_audio",
+            metadata={
+                "provider": self.provider,
+                "voice": self.voice,
+                "text_length": len(text),
+                "word_count": len(text.split()),
+                "audio_duration": segment.duration
+            }
+        )
+        
+        print(f"[BENCHMARK] TTSEngine.generate_audio: {duration:.2f}s ({len(text.split())} words, {segment.duration:.1f}s audio)")
+        
+        return segment
     
     def _generate_openai(self, text: str, output_path: Path, speed: float) -> AudioSegment:
         """Generate audio using OpenAI TTS."""

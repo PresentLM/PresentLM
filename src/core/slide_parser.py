@@ -12,6 +12,8 @@ import pymupdf  # PyMuPDF for PDF parsing
 from pptx import Presentation  # python-pptx for PowerPoint
 from dataclasses import dataclass
 
+from ..utils.benchmark import get_benchmark_tracker
+
 
 @dataclass
 class Slide:
@@ -71,14 +73,36 @@ class SlideParser:
         Returns:
             List of Slide objects
         """
+        # Start benchmarking
+        benchmark = get_benchmark_tracker()
+        timer_id = f"parse_{file_path.name}_{id(self)}"
+        benchmark.start_timer(timer_id)
+        
         file_extension = file_path.suffix.lower()
         
         if file_extension == '.pdf':
-            return self._parse_pdf(file_path)
+            slides = self._parse_pdf(file_path)
         elif file_extension in ['.pptx', '.ppt']:
-            return self._parse_pptx(file_path)
+            slides = self._parse_pptx(file_path)
         else:
             raise ValueError(f"Unsupported file format: {file_extension}")
+        
+        # End benchmarking
+        duration = benchmark.end_timer(
+            timer_id,
+            component="SlideParser",
+            operation="parse",
+            metadata={
+                "num_slides": len(slides),
+                "file_type": file_extension,
+                "file_size_bytes": file_path.stat().st_size,
+                "use_vision": self.use_vision
+            }
+        )
+        
+        print(f"[BENCHMARK] SlideParser.parse: {duration:.2f}s for {len(slides)} slides")
+        
+        return slides
     
     def _parse_pdf(self, file_path: Path) -> List[Slide]:
         """Parse PDF slide deck."""

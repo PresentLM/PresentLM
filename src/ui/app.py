@@ -21,7 +21,8 @@ from src.core import (
 )
 from src.utils import (
     Config, save_json, load_json, get_timestamp, sanitize_filename,
-    save_presentation_data, load_presentation_data, get_saved_presentations
+    save_presentation_data, load_presentation_data, get_saved_presentations,
+    get_benchmark_tracker, reset_benchmark_tracker
 )
 
 
@@ -273,6 +274,10 @@ TEST_MODE=true
         return
 
     with st.spinner("Processing presentation..."):
+        # Reset and get benchmark tracker
+        reset_benchmark_tracker()
+        benchmark = get_benchmark_tracker()
+        
         # Save uploaded file
         timestamp = get_timestamp()
         filename = sanitize_filename(uploaded_file.name)
@@ -351,6 +356,14 @@ TEST_MODE=true
             base_dir=Config.DATA_DIR
         )
 
+        # Save benchmark data
+        benchmark_file = Config.DATA_DIR / f"benchmark_{timestamp}.json"
+        benchmark.save_json(benchmark_file)
+        st.info(f"✓ Benchmarks saved to {benchmark_file.name}")
+        
+        # Print benchmark summary to console
+        benchmark.print_summary()
+
         st.rerun()
 
 
@@ -373,6 +386,16 @@ def load_saved_presentation(timestamp: str):
             metadata = data['metadata']
             st.session_state.llm_model = metadata.get('llm_model', 'gpt-4o-mini')
             st.session_state.test_mode = metadata.get('test_mode', True)
+            
+            # Load existing benchmark data if it exists, so Q&A interactions are appended to it
+            benchmark = get_benchmark_tracker(session_id=timestamp)
+            benchmark_file = Config.DATA_DIR / f"benchmark_{timestamp}.json"
+            if benchmark_file.exists():
+                try:
+                    benchmark.load_json(benchmark_file)
+                    st.info(f"✓ Loaded existing benchmarks")
+                except Exception as e:
+                    st.warning(f"Could not load existing benchmarks: {e}")
             
             st.success(f"Loaded presentation: {metadata.get('filename', 'Unknown')}")
             st.rerun()
@@ -775,6 +798,13 @@ def show_presentation_page():
                                 st.session_state.answer_audio_path = None
                         else:
                             st.session_state.answer_audio_path = None
+                        
+                        # Save updated benchmark data (now includes Q&A stats)
+                        benchmark = get_benchmark_tracker()
+                        if 'timestamp' in st.session_state:
+                            benchmark_file = Config.DATA_DIR / f"benchmark_{st.session_state.timestamp}.json"
+                            benchmark.save_json(benchmark_file)
+                            st.info(f"✓ Q&A recorded in benchmarks")
                         
                         st.session_state.waiting_for_feedback = True
                         st.session_state.asking_question = False

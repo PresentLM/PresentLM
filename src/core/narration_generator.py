@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import openai
 
 from ..utils.config import Config
+from ..utils.benchmark import get_benchmark_tracker
 from .slide_parser import Slide
 
 
@@ -73,28 +74,48 @@ class NarrationGenerator:
         Returns:
             List of SlideNarration objects
         """
+        # Start benchmarking
+        benchmark = get_benchmark_tracker()
+        timer_id = f"generate_narration_{id(self)}"
+        benchmark.start_timer(timer_id)
+        
         if mode == "continuous":
-            return self._generate_continuous_narration(slides, context, style)
+            narrations = self._generate_continuous_narration(slides, context, style)
+        else:
+            narrations = []
+            for slide in slides:
+                narration_text = self._generate_single_narration(
+                    slide,
+                    context=context,
+                    style=style,
+                    previous_slides=slides[:slide.slide_number-1],
+                )
 
-        narrations = []
-        for slide in slides:
-            narration_text = self._generate_single_narration(
-                slide,
-                context=context,
-                style=style,
-                previous_slides=slides[:slide.slide_number-1],
-            )
+                # Estimate duration (150 words per minute)
+                word_count = len(narration_text.split())
+                duration = (word_count / 150) * 60
 
-            # Estimate duration (150 words per minute)
-            word_count = len(narration_text.split())
-            duration = (word_count / 150) * 60
+                narrations.append(SlideNarration(
+                    slide_number=slide.slide_number,
+                    narration_text=narration_text,
+                    estimated_duration=duration
+                ))
 
-            narrations.append(SlideNarration(
-                slide_number=slide.slide_number,
-                narration_text=narration_text,
-                estimated_duration=duration
-            ))
-
+        # End benchmarking
+        duration = benchmark.end_timer(
+            timer_id,
+            component="NarrationGenerator",
+            operation="generate_narration",
+            metadata={
+                "num_slides": len(slides),
+                "model": self.model,
+                "style": style,
+                "mode": mode
+            }
+        )
+        
+        print(f"[BENCHMARK] NarrationGenerator.generate_narration: {duration:.2f}s for {len(narrations)} slides")
+        
         return narrations
 
     def _generate_single_narration(

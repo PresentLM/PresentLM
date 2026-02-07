@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import openai
 
 from ..utils.config import Config
+from ..utils.benchmark import get_benchmark_tracker
 from .slide_parser import Slide
 from .narration_generator import SlideNarration
 
@@ -58,6 +59,11 @@ class QuestionHandler:
         Returns:
             Answer text
         """
+        # Start benchmarking
+        benchmark = get_benchmark_tracker()
+        timer_id = f"answer_question_{id(self)}"
+        benchmark.start_timer(timer_id)
+        
         # Build context-aware prompt
         prompt = self._build_question_prompt(
             question,
@@ -69,6 +75,23 @@ class QuestionHandler:
         
         # Get answer from LLM
         answer = self._answer_openai(prompt)
+        
+        # End benchmarking
+        duration = benchmark.end_timer(
+            timer_id,
+            component="QuestionHandler",
+            operation="answer_question",
+            metadata={
+                "provider": self.provider,
+                "model": self.model,
+                "question_length": len(question),
+                "answer_length": len(answer),
+                "slide_number": current_slide.slide_number,
+                "conversation_history_length": len(self.conversation_history)
+            }
+        )
+        
+        print(f"[BENCHMARK] QuestionHandler.answer_question: {duration:.2f}s (Q:{len(question)} chars, A:{len(answer)} chars)")
         
         # Store in conversation history
         qa = QuestionAnswer(
