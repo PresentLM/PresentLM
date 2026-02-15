@@ -12,6 +12,13 @@ from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.pdfgen import canvas
+from PIL import Image as PILImage
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -808,14 +815,14 @@ def show_presentation_page():
             """, height=40)
 
         with toolbar_col3:
-            # Export button (compact text)
-            export_text = generate_narration_export(narrations)
+            # Export button - generates PDF with slides and narrations
+            pdf_bytes = generate_narration_pdf(slides, narrations)
             st.download_button(
                 label="📥",
-                data=export_text,
-                file_name=f"narrations_{st.session_state.get('timestamp', 'export')}.txt",
-                mime="text/plain",
-                help="Download Narrations",
+                data=pdf_bytes,
+                file_name=f"narrations_{st.session_state.get('timestamp', 'export')}.pdf",
+                mime="application/pdf",
+                help="Download Narrations as PDF",
                 use_container_width=True
             )
 
@@ -1290,6 +1297,164 @@ def generate_narration_export(narrations) -> str:
     export_lines.append("=" * 80)
     
     return "\n".join(export_lines)
+
+
+def generate_narration_pdf(slides, narrations) -> bytes:
+    """
+    Generate a PDF export of presentation with slide images and narrations.
+    
+    Args:
+        slides: List of Slide objects containing image data
+        narrations: List of SlideNarration objects
+        
+    Returns:
+        PDF file as bytes
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                           topMargin=0.75*inch, bottomMargin=0.75*inch,
+                           leftMargin=0.75*inch, rightMargin=0.75*inch)
+    
+    # Container for PDF elements
+    story = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor='#2c3e50',
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor='#34495e',
+        spaceAfter=12,
+        spaceBefore=12
+    )
+    stat_style = ParagraphStyle(
+        'StatStyle',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor='#555555',
+        spaceAfter=8,
+        alignment=TA_LEFT
+    )
+    narration_style = ParagraphStyle(
+        'NarrationStyle',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor='#333333',
+        spaceAfter=6,
+        alignment=TA_LEFT,
+        leading=14
+    )
+    duration_style = ParagraphStyle(
+        'DurationStyle',
+        parent=styles['Italic'],
+        fontSize=10,
+        textColor='#7f8c8d',
+        spaceAfter=20,
+        alignment=TA_LEFT
+    )
+    
+    # Calculate statistics
+    total_slides = len(narrations)
+    total_duration = sum(n.estimated_duration for n in narrations)
+    total_minutes = int(total_duration // 60)
+    total_seconds = int(total_duration % 60)
+    
+    # Add title page with statistics
+    story.append(Paragraph("PRESENTATION NARRATIONS", title_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    story.append(Paragraph("<b>Presentation Statistics</b>", heading_style))
+    story.append(Paragraph(f"<b>Total Slides:</b> {total_slides}", stat_style))
+    story.append(Paragraph(f"<b>Estimated Presentation Time:</b> {total_minutes} minutes {total_seconds} seconds", stat_style))
+    story.append(Paragraph(f"<b>Average Time per Slide:</b> {total_duration/total_slides:.1f} seconds", stat_style))
+    
+    story.append(Spacer(1, 0.5*inch))
+    story.append(PageBreak())
+    
+    # Add each slide with its narration
+    for i, narration in enumerate(narrations):
+        # Find corresponding slide
+        slide = slides[i] if i < len(slides) else None
+        
+        # Add slide number as heading
+        story.append(Paragraph(f"Slide {narration.slide_number}", heading_style))
+        story.append(Spacer(1, 0.1*inch))
+        
+        # Add slide image if available
+        if slide and slide.image_data:
+            try:
+                # Load image from bytes
+                img = PILImage.open(BytesIO(slide.image_data))
+                
+                # Calculate scaled dimensions to fit width (max 6 inches wide)
+                max_width = 6.5 * inch
+                max_height = 4.5 * inch
+                
+                img_width, img_height = img.size
+                aspect_ratio = img_height / img_width
+                
+                # Scale to fit within max dimensions
+                if img_width > max_width:
+                    new_width = max_width
+                    new_height = new_width * aspect_ratio
+                else:
+                    new_width = img_width
+                    new_height = img_height
+                
+                # Check if height exceeds max
+                if new_height > max_height:
+                    new_height = max_height
+                    new_width = new_height / aspect_ratio
+                
+                # Save to temporary buffer
+                img_buffer = BytesIO()
+                img.save(img_buffer, format='PNG')
+                img_buffer.seek(0)
+                
+                # Add image to PDF
+                rl_img = RLImage(img_buffer, width=new_width, height=new_height)
+                story.append(rl_img)
+                story.append(Spacer(1, 0.2*inch))
+            except Exception as e:
+                # If image fails to load, just continue
+                story.append(Paragraph(f"<i>[Image unavailable]</i>", narration_style))
+                story.append(Spacer(1, 0.2*inch))
+        
+        # Add narration text
+        story.append(Paragraph("<b>Narration:</b>", narration_style))
+        # Break narration into paragraphs if it contains newlines
+        narration_paragraphs = narration.narration_text.split('\n')
+        for para in narration_paragraphs:
+            if para.strip():
+                story.append(Paragraph(para, narration_style))
+        
+        story.append(Spacer(1, 0.1*inch))
+        
+        # Add duration
+        duration_text = f"Estimated duration: {narration.estimated_duration:.1f} seconds ({narration.estimated_duration/60:.1f} minutes)"
+        story.append(Paragraph(duration_text, duration_style))
+        
+        # Add page break after each slide (except the last one)
+        if i < len(narrations) - 1:
+            story.append(PageBreak())
+    
+    # Build PDF
+    doc.build(story)
+    
+    # Get PDF bytes
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_bytes
 
 
 if __name__ == "__main__":
