@@ -30,13 +30,6 @@ def load_json(file_path: Path) -> Dict[str, Any]:
         return json.load(f)
 
 
-def format_timestamp(seconds: float) -> str:
-    """Format seconds to MM:SS format."""
-    minutes = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f"{minutes:02d}:{secs:02d}"
-
-
 def save_presentation_data(timestamp: str, slides: List, narrations: List, audio_segments: List, metadata: Dict, base_dir: Path) -> None:
     """Save complete presentation data for later loading."""
     # Save slides
@@ -97,33 +90,6 @@ def get_saved_presentations(base_dir: Path) -> List[Dict]:
         except Exception:
             continue
     return presentations
-
-
-def estimate_audio_duration(text: str, words_per_minute: int = 150) -> float:
-    """Estimate audio duration based on text length."""
-    word_count = len(text.split())
-    duration_minutes = word_count / words_per_minute
-    return duration_minutes * 60  # Return in seconds
-
-
-def chunk_text(text: str, max_chars: int = 5000) -> List[str]:
-    """Split text into chunks at sentence boundaries."""
-    sentences = text.replace('\n', ' ').split('. ')
-    chunks = []
-    current_chunk = ""
-    
-    for sentence in sentences:
-        if len(current_chunk) + len(sentence) + 2 <= max_chars:
-            current_chunk += sentence + ". "
-        else:
-            if current_chunk:
-                chunks.append(current_chunk.strip())
-            current_chunk = sentence + ". "
-    
-    if current_chunk:
-        chunks.append(current_chunk.strip())
-    
-    return chunks
 
 
 def get_timestamp() -> str:
