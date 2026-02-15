@@ -129,40 +129,40 @@ def main():
     # Main content area
     if not st.session_state.presentation_loaded:
         show_upload_page()
+        # Footer
+        st.markdown("---")
+
+        st.markdown(
+            """
+            <div style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.4rem;
+            ">
+                <div style="font-size: 1.2rem;">
+                    <a href="https://presentlm.github.io/PresentLM/"
+                       target="_blank"
+                       style="margin-right: 0.75rem; color: inherit;"
+                       title="Documentation">
+                        <i class="fa-solid fa-book"></i>
+                    </a>
+                    <a href="https://github.com/PresentLM/PresentLM"
+                       target="_blank"
+                       style="color: inherit;"
+                       title="GitHub">
+                        <i class="fa-brands fa-github"></i>
+                    </a>
+                </div>
+                <div style="font-size: 0.75rem; color: #6b7280;">
+                    © 2026 PresentLM. All rights reserved.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     else:
         show_presentation_page()
-    # Footer
-    st.markdown("---")
-
-    st.markdown(
-        """
-        <div style="
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.4rem;
-        ">
-            <div style="font-size: 1.2rem;">
-                <a href="https://presentlm.github.io/PresentLM/"
-                   target="_blank"
-                   style="margin-right: 0.75rem; color: inherit;"
-                   title="Documentation">
-                    <i class="fa-solid fa-book"></i>
-                </a>
-                <a href="https://github.com/PresentLM/PresentLM"
-                   target="_blank"
-                   style="color: inherit;"
-                   title="GitHub">
-                    <i class="fa-brands fa-github"></i>
-                </a>
-            </div>
-            <div style="font-size: 0.75rem; color: #6b7280;">
-                © 2026 PresentLM. All rights reserved.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 
 def show_upload_page():
@@ -477,29 +477,41 @@ def show_presentation_page():
         header {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* Optimize container padding */
+        /* Make body fit viewport exactly */
+        html, body {
+            height: 100vh;
+            overflow: hidden !important;
+        }
+        
+        [data-testid="stAppViewContainer"] {
+            height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        /* Main container - constrain to viewport */
         .block-container {
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
+            padding: 0.2rem 0.4rem;
             max-width: 100%;
+            min-height: 100vh;
+            max-height: 100vh;
         }
         
         /* Reduce all vertical spacing */
         .element-container {
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.08rem;
         }
         
         div[data-testid="stVerticalBlock"] > div {
-            gap: 0.25rem;
+            gap: 0.08rem;
         }
         
         /* Compact buttons */
         .stButton button {
-            padding: 0.35rem 0.75rem;
-            font-size: 0.875rem;
-            height: 2.5rem;
+            padding: 0.15rem 0.35rem;
+            font-size: 0.75rem;
+            height: 1.8rem;
+            line-height: 1;
         }
         
         /* Hide home button completely and remove its space */
@@ -513,52 +525,94 @@ def show_presentation_page():
         
         /* Compact selectbox */
         div[data-baseweb="select"] {
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.05rem;
+            min-height: 28px;
+        }
+        
+        div[data-baseweb="select"] > div {
+            min-height: 28px;
+            font-size: 0.75rem;
         }
         
         /* Compact expander */
         .streamlit-expanderHeader {
-            font-size: 0.9rem;
-            padding: 0.4rem 0.75rem;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.35rem;
             font-weight: 500;
+            min-height: 26px;
         }
         
         .streamlit-expanderContent {
-            padding: 0.5rem 0.75rem;
+            padding: 0.25rem 0.4rem;
+            max-height: 8vh;
+            overflow-y: auto;
+            font-size: 0.7rem;
+            line-height: 1.3;
         }
         
-        /* Optimize slide image to fit viewport */
+        /* Slide image - use viewport-relative sizing */
         .stImage {
-            max-height: calc(100vh - 320px);
+            max-height: 60vh;
+            min-height: 200px;
             object-fit: contain;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0.1rem 0;
         }
         
         .stImage img {
-            max-height: calc(100vh - 320px);
+            max-height: 50vh;
+            height: auto;
+            width: auto;
+            max-width: 100%;
             object-fit: contain;
         }
         
         /* Compact audio player */
         audio {
-            height: 40px;
+            height: 28px;
         }
         
         /* Compact horizontal dividers */
         hr {
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
+            margin: 0.1rem 0;
+            border-width: 0.5px;
         }
         
         /* Compact download button */
         .stDownloadButton button {
-            padding: 0.35rem 0.75rem;
-            font-size: 0.875rem;
-            height: 2.5rem;
+            padding: 0.15rem 0.35rem;
+            font-size: 0.75rem;
+            height: 1.8rem;
+            line-height: 1;
         }
         
         /* Reduce gap between columns */
         div[data-testid="column"] {
-            padding: 0 0.25rem;
+            padding: 0 0.1rem;
+        }
+        
+        /* Compact progress bar */
+        .stProgress {
+            height: 0.15rem;
+        }
+        
+        /* Compact info/warning boxes */
+        .stAlert {
+            padding: 0.15rem 0.35rem;
+            font-size: 0.7rem;
+            line-height: 1.2;
+        }
+        
+        /* Compact text areas and inputs */
+        textarea {
+            font-size: 0.75rem;
+        }
+        
+        /* iframe components */
+        iframe {
+            margin: 0 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -675,79 +729,6 @@ def show_presentation_page():
     current_slide = slides[current_idx]
     current_narration = narrations[current_idx]
 
-    # === 1. TOOLBAR: Logo icon and download button ===
-    toolbar_col1, toolbar_col2, toolbar_col3 = st.columns([2, 5.7, 1])
-
-    with toolbar_col1:
-        # Hidden button for home navigation
-        if st.button("home_hidden", key="home_button"):
-            st.session_state.presentation_loaded = False
-            st.session_state.is_paused = False
-            st.session_state.current_question = None
-            st.session_state.current_answer = None
-            st.session_state.waiting_for_feedback = False
-            st.session_state.qa_panel_open = False
-            st.rerun()
-
-        # Logo icon that triggers the hidden button
-        components.html(f"""
-        <div style="width:110px; height:40px; display: flex; align-items: center; margin: 0; padding: 0;">
-            <img id="presentlm-home-icon"
-                 src="data:image/png;base64,{get_base64_image('src/assets/PresentLM-logo.png')}"
-                 style="width:100%; height:100%; object-fit: contain; cursor: pointer;"
-                 alt="Home"
-                 title="Back to Home"
-            >
-        </div>
-        <script>
-            (function() {{
-                const icon = document.getElementById('presentlm-home-icon');
-                if (icon) {{
-                    icon.addEventListener('click', function() {{
-                        // Find and click the hidden home button
-                        const buttons = window.parent.document.querySelectorAll('button');
-                        for (let btn of buttons) {{
-                            const text = btn.textContent || '';
-                            if (text.includes('home_hidden')) {{
-                                btn.click();
-                                return;
-                            }}
-                        }}
-                    }});
-                }}
-            }})();
-        </script>
-        """, height=40)
-
-    with toolbar_col3:
-        # Export button
-        export_text = generate_narration_export(narrations)
-        st.download_button(
-            label="📥 Download",
-            data=export_text,
-            file_name=f"narrations_{st.session_state.get('timestamp', 'export')}.txt",
-            mime="text/plain",
-            help="Download Narrations",
-            use_container_width=True
-        )
-
-    # Show audio generation progress if still generating
-    if not st.session_state.get('audio_generation_complete', True):
-        ready_count = sum(st.session_state.audio_ready)
-        total_count = len(st.session_state.audio_ready)
-        progress_pct = ready_count / total_count if total_count > 0 else 0
-
-        col_prog, col_refresh = st.columns([9, 1])
-        with col_prog:
-            st.progress(progress_pct, text=f"Audio generation: {ready_count}/{total_count} slides ready")
-        with col_refresh:
-            if st.button("🔄", key="refresh_progress", help="Refresh"):
-                st.rerun()
-
-        # Print debug info to terminal only
-        print(f"DEBUG UI: Audio ready flags: {st.session_state.audio_ready}")
-        print(f"DEBUG UI: Current slide: {current_idx + 1}")
-
     # === 2. SLIDE SELECTOR BAR ===
     # Create slide options for selectbox
     slide_options = []
@@ -775,318 +756,414 @@ def show_presentation_page():
                 st.session_state.current_slide_idx = selected_idx
                 st.session_state.audio_finished = False
 
-    st.selectbox(
-        label="Navigate to slide:",
-        options=slide_options,
-        key="slide_selector_value",
-        on_change=on_slide_select,
-        label_visibility="collapsed"
-    )
+    # === CREATE CENTERED LAYOUT FOR PRESENTATION ===
+    # Use columns to center the toolbar, slide selector, slide, and controls
+    # Always use same layout - Q&A panel will be handled within slide area
+    _left_pad, presentation_col, _right_pad = st.columns([1, 6, 1])
 
+    # Toolbar and slide selector inside the centered column
+    with presentation_col:
+        # === 1. TOOLBAR: Logo icon and download button ===
+        toolbar_col1, toolbar_col2, toolbar_col3 = st.columns([2, 5.7, 1])
 
-    # === 3. SLIDE DISPLAY WITH Q&A PANEL ===
-    # Create columns: slide takes 3/4 if Q&A is open, full width otherwise
-    if st.session_state.qa_panel_open:
-        slide_col, qa_col = st.columns([3, 1])
-    else:
-        slide_col = st.container()
-        qa_col = None
-
-    with slide_col:
-        # Q&A button in top right corner
-        qa_button_col1, qa_button_col2 = st.columns([9, 1])
-        with qa_button_col2:
-            if st.button("❓", key="qa_toggle", help="Ask a Question"):
-                st.session_state.qa_panel_open = not st.session_state.qa_panel_open
-                if st.session_state.qa_panel_open:
-                    st.session_state.is_paused = True
-                    st.session_state.asking_question = True
-                else:
-                    st.session_state.is_paused = False
-                    st.session_state.asking_question = False
+        with toolbar_col1:
+            # Hidden button for home navigation
+            if st.button("home_hidden", key="home_button"):
+                st.session_state.presentation_loaded = False
+                st.session_state.is_paused = False
+                st.session_state.current_question = None
+                st.session_state.current_answer = None
+                st.session_state.waiting_for_feedback = False
+                st.session_state.qa_panel_open = False
                 st.rerun()
 
-        # Slide content
-        if current_slide.image_data:
-            st.image(
-                BytesIO(current_slide.image_data),
+            # Logo icon that triggers the hidden button
+            components.html(f"""
+            <div style="width:110px; height:40px; display: flex; align-items: center; margin: 0; padding: 0;">
+                <img id="presentlm-home-icon"
+                     src="data:image/png;base64,{get_base64_image('src/assets/PresentLM-logo.png')}"
+                     style="width:100%; height:100%; object-fit: contain; cursor: pointer;"
+                     alt="Home"
+                     title="Back to Home"
+                >
+            </div>
+            <script>
+                (function() {{
+                    const icon = document.getElementById('presentlm-home-icon');
+                    if (icon) {{
+                        icon.addEventListener('click', function() {{
+                            // Find and click the hidden home button
+                            const buttons = window.parent.document.querySelectorAll('button');
+                            for (let btn of buttons) {{
+                                const text = btn.textContent || '';
+                                if (text.includes('home_hidden')) {{
+                                    btn.click();
+                                    return;
+                                }}
+                            }}
+                        }});
+                    }}
+                }})();
+            </script>
+            """, height=40)
+
+        with toolbar_col3:
+            # Export button (compact text)
+            export_text = generate_narration_export(narrations)
+            st.download_button(
+                label="📥",
+                data=export_text,
+                file_name=f"narrations_{st.session_state.get('timestamp', 'export')}.txt",
+                mime="text/plain",
+                help="Download Narrations",
                 use_container_width=True
             )
+
+        # Show audio generation progress if still generating
+        if not st.session_state.get('audio_generation_complete', True):
+            ready_count = sum(st.session_state.audio_ready)
+            total_count = len(st.session_state.audio_ready)
+            progress_pct = ready_count / total_count if total_count > 0 else 0
+
+            col_prog, col_refresh = st.columns([9, 1])
+            with col_prog:
+                st.progress(progress_pct, text=f"Audio generation: {ready_count}/{total_count} slides ready")
+            with col_refresh:
+                if st.button("🔄", key="refresh_progress", help="Refresh"):
+                    st.rerun()
+
+            # Print debug info to terminal only
+            print(f"DEBUG UI: Audio ready flags: {st.session_state.audio_ready}")
+            print(f"DEBUG UI: Current slide: {current_idx + 1}")
+
+        # Slide selector
+        st.selectbox(
+            label="Navigate to slide:",
+            options=slide_options,
+            key="slide_selector_value",
+            on_change=on_slide_select,
+            label_visibility="collapsed"
+        )
+
+        # === 3. SLIDE DISPLAY WITH Q&A PANEL ===
+        # When Q&A is open, create columns within this area only
+        if st.session_state.qa_panel_open:
+            slide_col, qa_col = st.columns([3, 1])
         else:
-            st.markdown(current_slide.content)
+            slide_col = st.container()
+            qa_col = None
 
-        # Speaker notes (if available)
-        if current_slide.notes:
-            with st.expander("📝 Speaker Notes"):
-                st.markdown(current_slide.notes)
+        with slide_col:
+            # Q&A button in top right corner
+            qa_button_col1, qa_button_col2 = st.columns([9, 1])
+            with qa_button_col2:
+                if st.button("❓", key="qa_toggle", help="Ask a Question"):
+                    st.session_state.qa_panel_open = not st.session_state.qa_panel_open
+                    if st.session_state.qa_panel_open:
+                        st.session_state.is_paused = True
+                        st.session_state.asking_question = True
+                    else:
+                        st.session_state.is_paused = False
+                        st.session_state.asking_question = False
+                    st.rerun()
 
-    # Q&A Panel (if open)
-    if st.session_state.qa_panel_open and qa_col:
-        with qa_col:
-            st.markdown("### Ask a Question")
+            # Slide content
+            if current_slide.image_data:
+                st.image(
+                    BytesIO(current_slide.image_data),
+                    use_container_width=True
+                )
+            else:
+                st.markdown(current_slide.content)
 
-            # If waiting for feedback on previous answer
-            if st.session_state.waiting_for_feedback:
-                st.markdown(f"**Q:** {st.session_state.current_question}")
-                st.markdown(f"**A:** {st.session_state.current_answer}")
+            # Speaker notes (if available)
+            if current_slide.notes:
+                with st.expander("📝 Speaker Notes"):
+                    st.markdown(current_slide.notes)
 
-                # Play answer audio if available and not in test mode
-                if st.session_state.answer_audio_path and not st.session_state.get('test_mode', True):
-                    if not st.session_state.answer_audio_finished:
-                        with open(st.session_state.answer_audio_path, 'rb') as audio_file:
-                            answer_audio_bytes = audio_file.read()
-                            answer_audio_base64 = base64.b64encode(answer_audio_bytes).decode()
+        # === Q&A PANEL (if open) ===
+        if st.session_state.qa_panel_open and qa_col:
+            with qa_col:
+                st.markdown("### Ask a Question")
 
-                        answer_audio_html = f"""
-                        <div style="margin: 10px 0;">
-                            <audio id="answer-audio" controls autoplay style="width: 100%;">
-                                <source src="data:audio/mpeg;base64,{answer_audio_base64}" type="audio/mpeg">
-                            </audio>
-                        </div>
-                        <script>
-                            (function() {{
-                                const audio = document.getElementById('answer-audio');
-                                audio.addEventListener('ended', function() {{
-                                    localStorage.setItem('answer_audio_finished', 'true');
-                                }});
-                            }})();
-                        </script>
-                        """
-                        components.html(answer_audio_html, height=70)
+                # If waiting for feedback on previous answer
+                if st.session_state.waiting_for_feedback:
+                    st.markdown(f"**Q:** {st.session_state.current_question}")
+                    st.markdown(f"**A:** {st.session_state.current_answer}")
 
-                        answer_done_btn = st.button(
-                            "answer_done_hidden",
-                            key="answer_audio_done",
-                            type="secondary"
-                        )
+                    # Play answer audio if available and not in test mode
+                    if st.session_state.answer_audio_path and not st.session_state.get('test_mode', True):
+                        if not st.session_state.answer_audio_finished:
+                            with open(st.session_state.answer_audio_path, 'rb') as audio_file:
+                                answer_audio_bytes = audio_file.read()
+                                answer_audio_base64 = base64.b64encode(answer_audio_bytes).decode()
 
-                        components.html("""
-                        <script>
-                            (function() {
-                                function checkAnswerFinished() {
-                                    const finished = localStorage.getItem('answer_audio_finished');
-                                    if (finished === 'true') {
-                                        localStorage.removeItem('answer_audio_finished');
+                            answer_audio_html = f"""
+                            <div style="margin: 10px 0;">
+                                <audio id="answer-audio" controls autoplay style="width: 100%;">
+                                    <source src="data:audio/mpeg;base64,{answer_audio_base64}" type="audio/mpeg">
+                                </audio>
+                            </div>
+                            <script>
+                                (function() {{
+                                    const audio = document.getElementById('answer-audio');
+                                    audio.addEventListener('ended', function() {{
+                                        localStorage.setItem('answer_audio_finished', 'true');
+                                    }});
+                                }})();
+                            </script>
+                            """
+                            components.html(answer_audio_html, height=70)
+
+                            answer_done_btn = st.button(
+                                "answer_done_hidden",
+                                key="answer_audio_done",
+                                type="secondary"
+                            )
+
+                            components.html("""
+                            <script>
+                                (function() {
+                                    function hideHiddenButtons() {
                                         const buttons = window.parent.document.querySelectorAll('button');
-                                        for (let btn of buttons) {
-                                            if (btn.textContent.includes('answer_done_hidden')) {
+                                        buttons.forEach(btn => {
+                                            const text = btn.textContent || '';
+                                            if (text.includes('_hidden')) {
                                                 btn.style.display = 'none';
-                                                btn.click();
-                                                return;
+                                                btn.style.visibility = 'hidden';
+                                                btn.style.position = 'absolute';
+                                                btn.style.left = '-9999px';
+                                            }
+                                        });
+                                    }
+                                    hideHiddenButtons();
+                                    setInterval(hideHiddenButtons, 100);
+                                    
+                                    function checkAnswerFinished() {
+                                        const finished = localStorage.getItem('answer_audio_finished');
+                                        if (finished === 'true') {
+                                            localStorage.removeItem('answer_audio_finished');
+                                            const buttons = window.parent.document.querySelectorAll('button');
+                                            for (let btn of buttons) {
+                                                if (btn.textContent.includes('answer_done_hidden')) {
+                                                    btn.click();
+                                                    return;
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                setInterval(checkAnswerFinished, 500);
-                            })();
-                        </script>
-                        """, height=0)
+                                    setInterval(checkAnswerFinished, 500);
+                                })();
+                            </script>
+                            """, height=0)
 
-                        if answer_done_btn:
-                            st.session_state.answer_audio_finished = True
-                            st.rerun()
-                else:
-                    st.session_state.answer_audio_finished = True
-
-                if st.session_state.answer_audio_finished:
-                    st.divider()
-                    st.markdown("**Was this helpful?**")
-
-                    if st.button("✅ Yes", key="yes_helpful", width="stretch"):
-                        st.session_state.is_paused = False
-                        st.session_state.waiting_for_feedback = False
-                        st.session_state.asking_question = False
-                        st.session_state.current_question = None
-                        st.session_state.current_answer = None
-                        st.session_state.answer_audio_path = None
-                        st.session_state.answer_audio_finished = False
-                        st.session_state.qa_panel_open = False
-                        st.rerun()
-
-                    if st.button("❌ No", key="no_helpful", width="stretch"):
-                        st.session_state.waiting_for_feedback = False
-                        st.session_state.current_answer = None
-                        st.session_state.answer_audio_path = None
-                        st.session_state.answer_audio_finished = False
-                        st.rerun()
-
-            elif st.session_state.asking_question:
-                question_mode = st.radio(
-                    "Input method:",
-                    ["Text", "Audio"],
-                    horizontal=True,
-                    key="qa_input_mode"
-                )
-
-                question_text = None
-
-                if question_mode == "Text":
-                    question_text = st.text_area("Your question:", key="text_question", height=100)
-                    ask_button = st.button("Submit", type="primary", width="stretch")
-                else:
-                    st.info("🎤 Record:")
-                    audio_bytes = st.audio_input("Record question")
-
-                    if audio_bytes:
-                        with st.spinner("Transcribing..."):
-                            try:
-                                stt = STTEngine(provider="openai")
-                                question_text = stt.transcribe(audio_bytes.read())
-                                st.success(f"📝 {question_text}")
-                                ask_button = True
-                            except Exception as e:
-                                st.error(f"Error: {e}")
-                                ask_button = False
+                            if answer_done_btn:
+                                st.session_state.answer_audio_finished = True
+                                st.rerun()
                     else:
-                        ask_button = False
+                        st.session_state.answer_audio_finished = True
 
-                if st.button("Cancel", width="stretch"):
-                    st.session_state.asking_question = False
-                    st.session_state.is_paused = False
-                    st.session_state.qa_panel_open = False
-                    st.rerun()
+                    if st.session_state.answer_audio_finished:
+                        st.divider()
+                        st.markdown("**Was this helpful?**")
 
-                if ask_button and question_text and question_text.strip():
-                    st.session_state.current_question = question_text
-
-                    with st.spinner("Generating answer..."):
-                        try:
-                            question_handler = QuestionHandler(
-                                provider="openai",
-                                model=st.session_state.get('llm_model', 'gpt-4o-mini')
-                            )
-
-                            answer = question_handler.answer_question(
-                                question=question_text,
-                                current_slide=slides[current_idx],
-                                current_narration=narrations[current_idx],
-                                all_slides=slides,
-                                additional_context=None
-                            )
-
-                            st.session_state.current_answer = answer
-
-                            if not st.session_state.get('test_mode', True):
-                                try:
-                                    tts = TTSEngine(
-                                        provider="openai",
-                                        voice=st.session_state.get('tts_voice', 'alloy')
-                                    )
-
-                                    import tempfile
-                                    answer_audio_path = Path(tempfile.gettempdir()) / f"presentlm_answer_{get_timestamp()}.mp3"
-                                    tts.generate_audio(answer, answer_audio_path)
-                                    st.session_state.answer_audio_path = answer_audio_path
-                                except Exception as e:
-                                    st.warning(f"Could not generate audio: {e}")
-                                    st.session_state.answer_audio_path = None
-                            else:
-                                st.session_state.answer_audio_path = None
-
-                            benchmark = get_benchmark_tracker()
-                            if 'timestamp' in st.session_state:
-                                benchmark_file = Config.DATA_DIR / f"benchmark_{st.session_state.timestamp}.json"
-                                benchmark.save_json(benchmark_file)
-
-                            st.session_state.waiting_for_feedback = True
+                        if st.button("✅ Yes", key="yes_helpful", width="stretch"):
+                            st.session_state.is_paused = False
+                            st.session_state.waiting_for_feedback = False
                             st.session_state.asking_question = False
+                            st.session_state.current_question = None
+                            st.session_state.current_answer = None
+                            st.session_state.answer_audio_path = None
+                            st.session_state.answer_audio_finished = False
+                            st.session_state.qa_panel_open = False
+                            st.rerun()
+
+                        if st.button("❌ No", key="no_helpful", width="stretch"):
+                            st.session_state.waiting_for_feedback = False
+                            st.session_state.current_answer = None
+                            st.session_state.answer_audio_path = None
                             st.session_state.answer_audio_finished = False
                             st.rerun()
 
-                        except Exception as e:
-                            st.error(f"Failed: {e}")
-                            st.session_state.asking_question = False
-                            st.session_state.is_paused = False
+                elif st.session_state.asking_question:
+                    question_mode = st.radio(
+                        "Input method:",
+                        ["Text", "Audio"],
+                        horizontal=True,
+                        key="qa_input_mode"
+                    )
 
-    # === 4. CONTROLS BAR: Previous | Audio Player | Next ===
-    st.markdown("---")
+                    question_text = None
 
-    control_col1, control_col2, control_col3 = st.columns([1, 8, 1])
+                    if question_mode == "Text":
+                        question_text = st.text_area("Your question:", key="text_question", height=100)
+                        ask_button = st.button("Submit", type="primary", width="stretch")
+                    else:
+                        st.info("🎤 Record:")
+                        audio_bytes = st.audio_input("Record question")
 
-    with control_col1:
-        # Previous button (only active if not first slide)
-        if current_idx > 0:
-            st.button(
-                "⬅️ Previous",
-                key="prev_slide",
-                use_container_width=True,
-                on_click=lambda: st.session_state.update({'nav_prev': True})
-            )
-        else:
-            st.button("⬅️ Previous", key="prev_slide_disabled", disabled=True, use_container_width=True)
+                        if audio_bytes:
+                            with st.spinner("Transcribing..."):
+                                try:
+                                    stt = STTEngine(provider="openai")
+                                    question_text = stt.transcribe(audio_bytes.read())
+                                    st.success(f"📝 {question_text}")
+                                    ask_button = True
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+                                    ask_button = False
+                        else:
+                            ask_button = False
 
-    with control_col2:
-        # Audio player
-        if hasattr(st.session_state, 'audio_segments') and st.session_state.audio_segments:
-            audio_segment = st.session_state.audio_segments[current_idx]
-            if audio_segment and audio_segment.audio_path.exists():
-                should_autoplay = not (st.session_state.is_paused or st.session_state.waiting_for_feedback or st.session_state.asking_question)
-                autoplay_attr = "autoplay" if should_autoplay else ""
+                    if st.button("Cancel", width="stretch"):
+                        st.session_state.asking_question = False
+                        st.session_state.is_paused = False
+                        st.session_state.qa_panel_open = False
+                        st.rerun()
 
-                with open(audio_segment.audio_path, 'rb') as audio_file:
-                    audio_bytes = audio_file.read()
-                    audio_base64 = base64.b64encode(audio_bytes).decode()
+                    if ask_button and question_text and question_text.strip():
+                        st.session_state.current_question = question_text
 
-                audio_html = f"""
-                <audio id="presentlm-audio-{current_idx}" controls {autoplay_attr} style="width: 100%;">
-                    <source src="data:audio/mpeg;base64,{audio_base64}" type="audio/mpeg">
-                </audio>
-                <script>
-                    (function() {{
-                        const audio = document.getElementById('presentlm-audio-{current_idx}');
-                        const slideKey = 'presentlm_audio_position_slide_{current_idx}';
-                        const finishedKey = 'presentlm_audio_finished';
-                        
-                        audio.addEventListener('loadedmetadata', function() {{
-                            const savedPosition = localStorage.getItem(slideKey);
-                            if (savedPosition && !isNaN(parseFloat(savedPosition))) {{
-                                audio.currentTime = parseFloat(savedPosition);
-                                console.log('Audio position restored to:', savedPosition + 's');
-                            }}
-                        }});
-                        
-                        setInterval(function() {{
-                            if (!audio.paused && !audio.ended) {{
-                                localStorage.setItem(slideKey, audio.currentTime.toString());
-                            }}
-                        }}, 1000);
-                        
-                        audio.addEventListener('pause', function() {{
-                            localStorage.setItem(slideKey, audio.currentTime.toString());
-                        }});
-                        
-                        audio.addEventListener('ended', function() {{
-                            console.log('Audio ended!');
-                            localStorage.removeItem(slideKey);
-                            localStorage.setItem(finishedKey, 'true');
-                        }});
-                    }})();
-                </script>
-                """
-                components.html(audio_html, height=60)
-        elif st.session_state.get('test_mode', True):
-            st.info("🔇 Test mode: Audio generation skipped")
+                        with st.spinner("Generating answer..."):
+                            try:
+                                question_handler = QuestionHandler(
+                                    provider="openai",
+                                    model=st.session_state.get('llm_model', 'gpt-4o-mini')
+                                )
 
-    with control_col3:
-        # Next button (only active if not last slide)
-        if current_idx < len(slides) - 1:
-            if st.session_state.audio_ready[current_idx + 1]:
+                                answer = question_handler.answer_question(
+                                    question=question_text,
+                                    current_slide=slides[current_idx],
+                                    current_narration=narrations[current_idx],
+                                    all_slides=slides,
+                                    additional_context=None
+                                )
+
+                                st.session_state.current_answer = answer
+
+                                if not st.session_state.get('test_mode', True):
+                                    try:
+                                        tts = TTSEngine(
+                                            provider="openai",
+                                            voice=st.session_state.get('tts_voice', 'alloy')
+                                        )
+
+                                        import tempfile
+                                        answer_audio_path = Path(tempfile.gettempdir()) / f"presentlm_answer_{get_timestamp()}.mp3"
+                                        tts.generate_audio(answer, answer_audio_path)
+                                        st.session_state.answer_audio_path = answer_audio_path
+                                    except Exception as e:
+                                        st.warning(f"Could not generate audio: {e}")
+                                        st.session_state.answer_audio_path = None
+                                else:
+                                    st.session_state.answer_audio_path = None
+
+                                benchmark = get_benchmark_tracker()
+                                if 'timestamp' in st.session_state:
+                                    benchmark_file = Config.DATA_DIR / f"benchmark_{st.session_state.timestamp}.json"
+                                    benchmark.save_json(benchmark_file)
+
+                                st.session_state.waiting_for_feedback = True
+                                st.session_state.asking_question = False
+                                st.session_state.answer_audio_finished = False
+                                st.rerun()
+
+                            except Exception as e:
+                                st.error(f"Failed: {e}")
+                                st.session_state.asking_question = False
+                                st.session_state.is_paused = False
+
+        # === 4. CONTROLS BAR: Previous | Audio Player | Next ===
+        # Controls bar (continue in presentation_col)
+        st.markdown("---")
+
+        control_col1, control_col2, control_col3 = st.columns([1, 8, 1])
+
+        with control_col1:
+            # Previous button (only active if not first slide)
+            if current_idx > 0:
                 st.button(
-                    "Next ➡️",
-                    key="next_slide",
+                    "⬅️",
+                    key="prev_slide",
                     use_container_width=True,
-                    on_click=lambda: st.session_state.update({'nav_next': True})
+                    on_click=lambda: st.session_state.update({'nav_prev': True})
                 )
             else:
-                st.button("Next ➡️", key="next_slide_waiting", disabled=True, use_container_width=True, help="⏳ Audio generating...")
-        else:
-            st.button("Next ➡️", key="next_slide_disabled", disabled=True, use_container_width=True)
+                st.button("⬅️", key="prev_slide_disabled", disabled=True, use_container_width=True)
 
-    # === 5. NARRATION EXPANDER ===
-    with st.expander("📄 Narration", expanded=False):
-        st.markdown(current_narration.narration_text)
+        with control_col2:
+            # Audio player
+            if hasattr(st.session_state, 'audio_segments') and st.session_state.audio_segments:
+                audio_segment = st.session_state.audio_segments[current_idx]
+                if audio_segment and audio_segment.audio_path.exists():
+                    should_autoplay = not (st.session_state.is_paused or st.session_state.waiting_for_feedback or st.session_state.asking_question)
+                    autoplay_attr = "autoplay" if should_autoplay else ""
 
-    # Auto-advance polling
+                    with open(audio_segment.audio_path, 'rb') as audio_file:
+                        audio_bytes = audio_file.read()
+                        audio_base64 = base64.b64encode(audio_bytes).decode()
+
+                    audio_html = f"""
+                    <audio id="presentlm-audio-{current_idx}" controls {autoplay_attr} style="width: 100%;">
+                        <source src="data:audio/mpeg;base64,{audio_base64}" type="audio/mpeg">
+                    </audio>
+                    <script>
+                        (function() {{
+                            const audio = document.getElementById('presentlm-audio-{current_idx}');
+                            const slideKey = 'presentlm_audio_position_slide_{current_idx}';
+                            const finishedKey = 'presentlm_audio_finished';
+                            
+                            audio.addEventListener('loadedmetadata', function() {{
+                                const savedPosition = localStorage.getItem(slideKey);
+                                if (savedPosition && !isNaN(parseFloat(savedPosition))) {{
+                                    audio.currentTime = parseFloat(savedPosition);
+                                    console.log('Audio position restored to:', savedPosition + 's');
+                                }}
+                            }});
+                            
+                            setInterval(function() {{
+                                if (!audio.paused && !audio.ended) {{
+                                    localStorage.setItem(slideKey, audio.currentTime.toString());
+                                }}
+                            }}, 1000);
+                            
+                            audio.addEventListener('pause', function() {{
+                                localStorage.setItem(slideKey, audio.currentTime.toString());
+                            }});
+                            
+                            audio.addEventListener('ended', function() {{
+                                console.log('Audio ended!');
+                                localStorage.removeItem(slideKey);
+                                localStorage.setItem(finishedKey, 'true');
+                            }});
+                        }})();
+                    </script>
+                    """
+                    components.html(audio_html, height=60)
+            elif st.session_state.get('test_mode', True):
+                st.info("🔇 Test mode: Audio generation skipped")
+
+        with control_col3:
+            # Next button (only active if not last slide)
+            if current_idx < len(slides) - 1:
+                if st.session_state.audio_ready[current_idx + 1]:
+                    st.button(
+                        "➡️",
+                        key="next_slide",
+                        use_container_width=True,
+                        on_click=lambda: st.session_state.update({'nav_next': True})
+                    )
+                else:
+                    st.button("➡️", key="next_slide_waiting", disabled=True, use_container_width=True, help="⏳ Audio generating...")
+            else:
+                st.button("➡️", key="next_slide_disabled", disabled=True, use_container_width=True)
+
+        # === 5. NARRATION EXPANDER ===
+        # Place at presentation_col level to span full width
+        with st.expander("📄 Narration", expanded=False):
+            st.markdown(current_narration.narration_text)
+
+    # Auto-advance polling (outside the presentation_col, as it's hidden)
     if hasattr(st.session_state, 'audio_segments') and st.session_state.audio_segments:
         if not st.session_state.waiting_for_feedback and not st.session_state.is_paused and not st.session_state.asking_question:
             if current_idx < len(slides) - 1:
@@ -1146,6 +1223,38 @@ def show_presentation_page():
                     height=0
                 )
 
+    # Footer
+    st.markdown("---")
+    
+    st.markdown(
+        """
+        <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+        ">
+            <div style="font-size: 1.2rem;">
+                <a href="https://presentlm.github.io/PresentLM/"
+                   target="_blank"
+                   style="margin-right: 0.75rem; color: inherit;"
+                   title="Documentation">
+                    <i class="fa-solid fa-book"></i>
+                </a>
+                <a href="https://github.com/PresentLM/PresentLM"
+                   target="_blank"
+                   style="color: inherit;"
+                   title="GitHub">
+                    <i class="fa-brands fa-github"></i>
+                </a>
+            </div>
+            <div style="font-size: 0.75rem; color: #6b7280;">
+                © 2026 PresentLM. All rights reserved.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 def get_base64_image(image_path: str) -> str:
