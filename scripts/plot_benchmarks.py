@@ -191,7 +191,7 @@ def plot_pipeline_timeline(name: str, events: List[Dict], output_path: Optional[
     current_time = 0
     
     for idx, (op_key, times) in enumerate(sorted_ops):
-        avg_time = np.mean(times)
+        avg_time = np.sum(times)
         op_name = op_key.split('::')[1]
         color = colors[min(idx, len(colors)-1)]
         
@@ -199,14 +199,16 @@ def plot_pipeline_timeline(name: str, events: List[Dict], output_path: Optional[
         ax.barh(y_pos, avg_time, left=current_time, height=0.4,
                 color=color, edgecolor='black', linewidth=2)
         
-        # Add label above the bar
+        # Alternate label positions to avoid overlap
         mid_point = current_time + avg_time / 2
-        ax.text(mid_point, y_pos + 0.35, f'{op_name}',
-                ha='center', va='bottom', fontsize=12, fontweight='bold')
-        
-        # Add time value above the label
-        ax.text(mid_point, y_pos + 0.55, f'{avg_time:.2f}s',
-                ha='center', va='bottom', fontsize=11, fontweight='bold', color='#333')
+        if idx % 2 == 0:
+            # Even index: labels above the bar
+            ax.text(mid_point, y_pos + 0.35, f'{op_name}\n{avg_time:.2f}s',
+                    ha='center', va='bottom', fontsize=11, fontweight='bold')
+        else:
+            # Odd index: labels below the bar
+            ax.text(mid_point, y_pos - 0.35, f'{op_name}\n{avg_time:.2f}s',
+                    ha='center', va='top', fontsize=11, fontweight='bold')
         
         current_time += avg_time
     
