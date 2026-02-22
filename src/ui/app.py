@@ -278,12 +278,16 @@ TEST_MODE=true
         return
 
     with st.spinner("Processing presentation..."):
+        # Generate a session timestamp first (used for file names and benchmark session id)
+        timestamp = get_timestamp()
+
         # Reset and get benchmark tracker
         reset_benchmark_tracker()
-        benchmark = get_benchmark_tracker()
-        
+        benchmark = get_benchmark_tracker(session_id=timestamp)
+        benchmark_file = Config.DATA_DIR / f"benchmark_{timestamp}.json"
+        benchmark.configure_persistence(benchmark_file, auto_save=True)
+
         # Save uploaded file
-        timestamp = get_timestamp()
         filename = sanitize_filename(uploaded_file.name)
         file_path = Config.SLIDES_DIR / f"{timestamp}_{filename}"
 
@@ -420,8 +424,7 @@ TEST_MODE=true
             base_dir=Config.DATA_DIR
         )
 
-        # Save benchmark data
-        benchmark_file = Config.DATA_DIR / f"benchmark_{timestamp}.json"
+        # Save benchmark data (will already be kept up-to-date via auto-save)
         benchmark.save_json(benchmark_file)
 
         # Print benchmark summary to console
@@ -459,6 +462,7 @@ def load_saved_presentation(timestamp: str):
             # Load existing benchmark data if it exists, so Q&A interactions are appended to it
             benchmark = get_benchmark_tracker(session_id=timestamp)
             benchmark_file = Config.DATA_DIR / f"benchmark_{timestamp}.json"
+            benchmark.configure_persistence(benchmark_file, auto_save=True)
             if benchmark_file.exists():
                 try:
                     benchmark.load_json(benchmark_file)
