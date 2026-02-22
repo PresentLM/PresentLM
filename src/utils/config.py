@@ -25,7 +25,7 @@ class Config:
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-    
+
     # LLM Configuration
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")  # openai, anthropic, google
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4-turbo")
@@ -64,10 +64,12 @@ class Config:
         
         if cls.LLM_PROVIDER == "anthropic" and not cls.ANTHROPIC_API_KEY:
             errors.append("ANTHROPIC_API_KEY is required when using Anthropic LLM")
-            
-        if cls.TTS_PROVIDER == "elevenlabs" and not cls.ELEVENLABS_API_KEY:
-            errors.append("ELEVENLABS_API_KEY is required when using ElevenLabs TTS")
-        
+
+        if cls.TTS_PROVIDER == "openai" and not cls.OPENAI_API_KEY:
+            errors.append("OPENAI_API_KEY is required when using OpenAI TTS")
+
+        # Qwen TTS runs locally - no API key validation needed
+
         if errors:
             raise ValueError("Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors))
         

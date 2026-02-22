@@ -48,8 +48,8 @@ Add your API keys to `.env`:
 OPENAI_API_KEY=sk-your-key-here
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-4-turbo
-TTS_PROVIDER=openai
-TTS_VOICE=alloy
+TTS_PROVIDER=openai  # or qwen for local TTS
+TTS_VOICE=alloy  # For Qwen: en-Female1, en-Male1, zh-Female1, etc.
 STT_PROVIDER=openai
 ```
 
@@ -112,6 +112,18 @@ TTS_PROVIDER=openai
 TTS_VOICE=alloy
 STT_PROVIDER=openai
 ```
+
+### For Qwen TTS (Local, Free)
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+TTS_PROVIDER=qwen
+TTS_VOICE=serena  # Female voice, or vivian, ono_anna, sohee for other female voices
+# No API key needed - runs locally!
+STT_PROVIDER=openai
+```
+
+**Note**: First use will download ~2.5GB model. Requires `pip install qwen-tts`.
 
 ### For Image-Heavy Presentations
 ```env

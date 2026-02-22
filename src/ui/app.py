@@ -4,6 +4,7 @@ Interactive presentation viewer with AI narration and Q&A.
 """
 
 import base64
+import json
 import sys
 import time
 import threading
@@ -45,9 +46,14 @@ def load_audio_progress(timestamp: str):
     progress_file = get_audio_progress_file(timestamp)
     print(f"DEBUG FILE: Trying to load from {progress_file}, exists={progress_file.exists()}")
     if progress_file.exists():
-        data = load_json(progress_file)
-        print(f"DEBUG FILE: Loaded data: {data}")
-        return data
+        try:
+            data = load_json(progress_file)
+            print(f"DEBUG FILE: Loaded data: {data}")
+            return data
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"DEBUG FILE: Corrupted JSON file, deleting: {e}")
+            progress_file.unlink()  # Delete corrupted file
+            return None
     print(f"DEBUG FILE: File does not exist")
     return None
 
@@ -115,6 +121,22 @@ if 'answer_audio_path' not in st.session_state:
     st.session_state.answer_audio_path = None
 if 'answer_audio_finished' not in st.session_state:
     st.session_state.answer_audio_finished = False
+
+# Pre-load Qwen TTS if selected (to avoid import time counting as generation time)
+if 'qwen_preloaded' not in st.session_state:
+    st.session_state.qwen_preloaded = False
+
+if Config.TTS_PROVIDER == "qwen" and not st.session_state.qwen_preloaded:
+    with st.spinner("Loading Qwen3-TTS model (first time only)..."):
+        try:
+            print("Pre-loading Qwen3-TTS model at app startup...")
+            # Create a dummy TTS engine to trigger model loading
+            _dummy_tts = TTSEngine()
+            st.session_state.qwen_preloaded = True
+            print("✅ Qwen3-TTS model pre-loaded successfully")
+        except Exception as e:
+            print(f"Warning: Could not pre-load Qwen3-TTS: {e}")
+            # Don't fail the app, just log the warning
 
 def main():
     """Main application."""
@@ -255,10 +277,14 @@ def process_presentation(
     narration_style,
     llm_model='gpt-4o-mini',
     test_mode=False,
-    tts_voice='alloy',
+    tts_voice=None,  # Will use Config.TTS_VOICE if None
 
 ):
     """Process uploaded presentation."""
+
+    # Use Config values if not specified
+    if tts_voice is None:
+        tts_voice = Config.TTS_VOICE
 
     # Validate API keys before processing
     try:
@@ -340,7 +366,7 @@ TEST_MODE=true
                 segments_list = [None] * len(narrations)
 
                 try:
-                    tts = TTSEngine(provider="openai", voice=tts_voice)
+                    tts = TTSEngine(voice=tts_voice)  # Uses Config.TTS_PROVIDER
 
                     for idx, narration in enumerate(narrations):
                         print(f"DEBUG: Starting audio generation for slide {idx + 1}/{len(narrations)}")
@@ -378,11 +404,9 @@ TEST_MODE=true
             audio_thread = threading.Thread(target=generate_audio_background, daemon=True)
             audio_thread.start()
 
-            # Poll until first slide is ready (with timeout) - no UI messages, just wait
-            max_wait = 60  # 60 seconds max wait
-            waited = 0
+            # Poll until first slide is ready (no timeout - wait indefinitely)
             first_slide_ready = False
-            while waited < max_wait:
+            while not first_slide_ready:
                 progress_data = load_audio_progress(timestamp)
                 if progress_data and progress_data['ready'][0]:
                     # First slide ready
@@ -391,12 +415,6 @@ TEST_MODE=true
                     first_slide_ready = True
                     break
                 time.sleep(0.5)
-                waited += 0.5
-
-            if not first_slide_ready:
-                st.error("Timeout waiting for first slide audio generation")
-                st.session_state.generating_audio = False
-                return
 
         # Save metadata
         metadata = {
@@ -1051,9 +1069,8 @@ def show_presentation_page():
                                 if not st.session_state.get('test_mode', True):
                                     try:
                                         tts = TTSEngine(
-                                            provider="openai",
-                                            voice=st.session_state.get('tts_voice', 'alloy')
-                                        )
+                                            voice=st.session_state.get('tts_voice', Config.TTS_VOICE)
+                                        )  # Uses Config.TTS_PROVIDER
 
                                         import tempfile
                                         answer_audio_path = Path(tempfile.gettempdir()) / f"presentlm_answer_{get_timestamp()}.mp3"

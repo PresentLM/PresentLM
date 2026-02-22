@@ -45,7 +45,16 @@ An AI-driven presentation system that turns static slide decks into interactive,
 1. **Set up your API key** in `.env`:
    ```
    OPENAI_API_KEY=sk-your-key-here
+   TTS_PROVIDER=openai  # or qwen for local TTS (free!)
    ```
+   
+   For Qwen TTS (runs locally, no API key needed):
+   ```
+   TTS_PROVIDER=qwen
+   TTS_VOICE=en-Female1  # or zh-Female1 for Chinese
+   ```
+   
+   See `TTS_CONFIGURATION.md` for detailed TTS setup instructions.
 
 2. **Run the application**:
    ```bash
