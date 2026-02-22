@@ -9,6 +9,7 @@ from dataclasses import dataclass, asdict, field
 from typing import Dict, List, Optional
 from pathlib import Path
 from datetime import datetime
+from threading import RLock
 
 
 @dataclass
@@ -44,10 +45,30 @@ class BenchmarkTracker:
         self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
         self.events: List[BenchmarkEvent] = []
         self._start_times: Dict[str, float] = {}
+
+        self._lock = RLock()
+        self._output_path: Optional[Path] = None
+        self._auto_save: bool = False
+
+    def configure_persistence(self, filepath: Path, auto_save: bool = True) -> None:
+        """Configure where benchmark data should be persisted.
+
+        When auto_save is enabled, every recorded event will flush an updated JSON file.
+        """
+        with self._lock:
+            self._output_path = filepath
+            self._auto_save = auto_save
+
+    def _persist_if_configured(self) -> None:
+        with self._lock:
+            if not (self._auto_save and self._output_path):
+                return
+            self.save_json(self._output_path, verbose=False)
     
     def start_timer(self, timer_id: str) -> None:
         """Start a timer with the given ID."""
-        self._start_times[timer_id] = time.time()
+        with self._lock:
+            self._start_times[timer_id] = time.time()
     
     def end_timer(
         self, 
@@ -68,20 +89,22 @@ class BenchmarkTracker:
         Returns:
             Duration in seconds
         """
-        if timer_id not in self._start_times:
-            raise ValueError(f"Timer '{timer_id}' was never started")
-        
-        duration = time.time() - self._start_times[timer_id]
-        del self._start_times[timer_id]
-        
-        event = BenchmarkEvent(
-            component=component,
-            operation=operation,
-            duration_seconds=duration,
-            metadata=metadata or {}
-        )
-        self.events.append(event)
-        
+        with self._lock:
+            if timer_id not in self._start_times:
+                raise ValueError(f"Timer '{timer_id}' was never started")
+
+            duration = time.time() - self._start_times[timer_id]
+            del self._start_times[timer_id]
+
+            event = BenchmarkEvent(
+                component=component,
+                operation=operation,
+                duration_seconds=duration,
+                metadata=metadata or {}
+            )
+            self.events.append(event)
+
+        self._persist_if_configured()
         return duration
     
     def record_event(
@@ -92,70 +115,85 @@ class BenchmarkTracker:
         metadata: Optional[Dict] = None
     ) -> None:
         """Record a benchmark event directly."""
-        event = BenchmarkEvent(
-            component=component,
-            operation=operation,
-            duration_seconds=duration_seconds,
-            metadata=metadata or {}
-        )
-        self.events.append(event)
+        with self._lock:
+            event = BenchmarkEvent(
+                component=component,
+                operation=operation,
+                duration_seconds=duration_seconds,
+                metadata=metadata or {}
+            )
+            self.events.append(event)
+
+        self._persist_if_configured()
     
     def get_summary(self) -> Dict:
         """Get summary statistics by component and operation."""
-        summary = {}
-        
-        for event in self.events:
-            key = f"{event.component}::{event.operation}"
-            if key not in summary:
-                summary[key] = {
-                    "count": 0,
-                    "total_time": 0.0,
-                    "min_time": float('inf'),
-                    "max_time": 0.0,
-                    "avg_time": 0.0
-                }
-            
-            summary[key]["count"] += 1
-            summary[key]["total_time"] += event.duration_seconds
-            summary[key]["min_time"] = min(summary[key]["min_time"], event.duration_seconds)
-            summary[key]["max_time"] = max(summary[key]["max_time"], event.duration_seconds)
-            summary[key]["avg_time"] = summary[key]["total_time"] / summary[key]["count"]
-        
-        return summary
+        with self._lock:
+            summary = {}
+
+            for event in self.events:
+                key = f"{event.component}::{event.operation}"
+                if key not in summary:
+                    summary[key] = {
+                        "count": 0,
+                        "total_time": 0.0,
+                        "min_time": float('inf'),
+                        "max_time": 0.0,
+                        "avg_time": 0.0
+                    }
+
+                summary[key]["count"] += 1
+                summary[key]["total_time"] += event.duration_seconds
+                summary[key]["min_time"] = min(summary[key]["min_time"], event.duration_seconds)
+                summary[key]["max_time"] = max(summary[key]["max_time"], event.duration_seconds)
+                summary[key]["avg_time"] = summary[key]["total_time"] / summary[key]["count"]
+
+            return summary
     
     def to_dict(self) -> Dict:
         """Convert all events to dictionary format."""
-        return {
-            "session_id": self.session_id,
-            "timestamp": datetime.now().isoformat(),
-            "events": [event.to_dict() for event in self.events],
-            "summary": self.get_summary()
-        }
+        with self._lock:
+            return {
+                "session_id": self.session_id,
+                "timestamp": datetime.now().isoformat(),
+                "events": [event.to_dict() for event in self.events],
+                "summary": self.get_summary()
+            }
     
-    def save_json(self, filepath: Path) -> None:
+    def save_json(self, filepath: Path, verbose: bool = True) -> None:
         """Save benchmark data to JSON file."""
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, 'w') as f:
-            json.dump(self.to_dict(), f, indent=2)
-        print(f"Benchmark data saved to {filepath}")
+        tmp_path = filepath.with_suffix(filepath.suffix + ".tmp")
+
+        with self._lock:
+            payload = self.to_dict()
+
+        with open(tmp_path, 'w') as f:
+            json.dump(payload, f, indent=2)
+            f.flush()
+
+        tmp_path.replace(filepath)
+        if verbose:
+            print(f"Benchmark data saved to {filepath}")
     
     def load_json(self, filepath: Path) -> None:
         """Load benchmark data from JSON file."""
         with open(filepath, 'r') as f:
             data = json.load(f)
-        
-        self.session_id = data.get("session_id", self.session_id)
-        self.events = []
-        
-        for event_data in data.get("events", []):
-            event = BenchmarkEvent(
-                component=event_data["component"],
-                operation=event_data["operation"],
-                duration_seconds=event_data["duration_seconds"],
-                timestamp=datetime.fromisoformat(event_data["timestamp"]),
-                metadata=event_data.get("metadata", {})
-            )
-            self.events.append(event)
+
+        with self._lock:
+            self.session_id = data.get("session_id", self.session_id)
+            self.events = []
+
+            for event_data in data.get("events", []):
+                event = BenchmarkEvent(
+                    component=event_data["component"],
+                    operation=event_data["operation"],
+                    duration_seconds=event_data["duration_seconds"],
+                    timestamp=datetime.fromisoformat(event_data["timestamp"]),
+                    metadata=event_data.get("metadata", {})
+                )
+                self.events.append(event)
     
     def print_summary(self) -> None:
         """Print a formatted summary of benchmarks."""
@@ -175,7 +213,8 @@ class BenchmarkTracker:
             print(f"  Max:       {stats['max_time']:.2f}s")
         
         print("\n" + "=" * 80)
-        total_time = sum(event.duration_seconds for event in self.events)
+        with self._lock:
+            total_time = sum(event.duration_seconds for event in self.events)
         print(f"TOTAL PIPELINE TIME: {total_time:.2f}s")
         print("=" * 80 + "\n")
 

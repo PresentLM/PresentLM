@@ -1,6 +1,7 @@
 """
-Benchmark Visualization Script - Dual Pipeline
-Separates and plots Upload and Q&A pipelines.
+Benchmark Visualization Script - Pipeline Performance Analysis
+Creates a comprehensive visualization showing the sequential pipeline bottleneck
+and the impact of progressive loading optimization.
 
 Usage:
     python scripts/plot_benchmarks.py <benchmark_file.json>
@@ -11,7 +12,8 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import numpy as np
 from collections import defaultdict
 
@@ -41,45 +43,49 @@ def find_latest_benchmark() -> Path:
     return latest
 
 
-def classify_events(events: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+def get_processing_events(events: List[Dict]) -> List[Dict]:
     """
-    Classify events into processing and Q&A pipelines.
+    Extract processing pipeline events (SlideParser, NarrationGenerator, TTSEngine for narrations).
+    Filters out Q&A events and Q&A-related TTS calls.
     
-    Processing pipeline: SlideParser, NarrationGenerator, TTSEngine (for narrations)
-    Q&A pipeline: STTEngine, QuestionHandler, TTSEngine (for answers)
+    Strategy:
+    1. Find SlideParser and NarrationGenerator events
+    2. Count number of slides from metadata
+    3. Take the next N TTSEngine events (where N = num_slides)
+    4. Stop before any STTEngine or QuestionHandler events
     """
-    upload_events = []
-    qa_events = []
+    processing_events = []
+    num_slides = None
+    tts_count = 0
     
-    # Check if we have STT or QuestionHandler events (indicators of Q&A)
-    has_qa = any(e['component'] in ['STTEngine', 'QuestionHandler'] for e in events)
-    
-    if not has_qa:
-        # No Q&A, all events are processing pipeline
-        return events, []
-    
-    # Separate events: processing comes first with SlideParser/NarrationGenerator
-    # Q&A comes after with STTEngine/QuestionHandler
+    # First pass: extract num_slides from metadata
     for event in events:
-        if event['component'] in ['STTEngine', 'QuestionHandler']:
-            qa_events.append(event)
-        elif event['component'] == 'TTSEngine':
-            # TTSEngine used in both - figure out which based on position
-            # If there are STT/QuestionHandler events, assume TTSEngine after index check
-            if len(upload_events) > 0 and upload_events[-1]['component'] == 'NarrationGenerator':
-                # This TTSEngine follows NarrationGenerator -> processing pipeline
-                upload_events.append(event)
-            elif len(qa_events) > 0 and any(e['component'] in ['STTEngine', 'QuestionHandler'] for e in qa_events):
-                # We have Q&A events, so this TTSEngine is likely for Q&A
-                qa_events.append(event)
-            else:
-                # Default to processing if unclear
-                upload_events.append(event)
-        else:
-            # SlideParser, NarrationGenerator -> processing pipeline
-            upload_events.append(event)
+        if event['component'] == 'SlideParser' and 'metadata' in event:
+            num_slides = event['metadata'].get('num_slides')
+            break
+        elif event['component'] == 'NarrationGenerator' and 'metadata' in event:
+            num_slides = event['metadata'].get('num_slides')
+            break
     
-    return upload_events, qa_events
+    # Second pass: extract processing events in order
+    for event in events:
+        component = event['component']
+        
+        # Stop if we hit Q&A components
+        if component in ['STTEngine', 'QuestionHandler']:
+            break
+        
+        # Add SlideParser and NarrationGenerator
+        if component in ['SlideParser', 'NarrationGenerator']:
+            processing_events.append(event)
+        
+        # Add TTSEngine only up to num_slides count
+        elif component == 'TTSEngine':
+            if num_slides is None or tts_count < num_slides:
+                processing_events.append(event)
+                tts_count += 1
+    
+    return processing_events
 
 
 def aggregate_by_component(events: List[Dict]) -> Dict:
@@ -93,249 +99,269 @@ def aggregate_by_component(events: List[Dict]) -> Dict:
     return component_times
 
 
-def plot_pipeline_latencies(name: str, events: List[Dict], output_path: Optional[Path] = None) -> None:
-    """Plot latencies for a specific pipeline."""
+def create_pipeline_visualization(events: List[Dict], output_path: Optional[Path] = None) -> None:
+    """
+    Create a comprehensive visualization showing the sequential pipeline performance
+    and the impact of progressive loading optimization.
+    
+    Shows:
+    1. Sequential execution timeline with critical path highlighted
+    2. Component latency breakdown with bottleneck identification
+    3. Performance comparison table (before vs after optimization)
+    """
     if not events:
+        print("No events to visualize")
         return
     
+    # Aggregate component times
     component_times = aggregate_by_component(events)
     
-    # Create ordered list of operations
-    operation_order = {
-        'SlideParser::parse': 0,
-        'NarrationGenerator::generate_narration': 1,
-        'STTEngine::transcribe': 0,
-        'QuestionHandler::answer_question': 1,
-        'TTSEngine::generate_audio': 2,
+    # Define component order
+    component_order = ['SlideParser', 'NarrationGenerator', 'TTSEngine']
+    operation_labels = {
+        'SlideParser::parse': 'Slide Parsing',
+        'NarrationGenerator::generate_narration': 'Narration Generation',
+        'TTSEngine::generate_audio': 'Text-to-Speech'
     }
     
-    # Sort by operation order
-    sorted_ops = sorted(
-        component_times.items(),
-        key=lambda x: operation_order.get(x[0], 999)
+    # Calculate timing data
+    timeline_data = []
+    current_time = 0
+    total_time = 0
+    
+    for component in component_order:
+        for key, times in component_times.items():
+            if component in key:
+                total_duration = sum(times)
+                count = len(times)
+                avg_duration = np.mean(times)
+                
+                timeline_data.append({
+                    'component': component,
+                    'label': operation_labels.get(key, key),
+                    'start': current_time,
+                    'duration': total_duration,
+                    'avg_duration': avg_duration,
+                    'count': count,
+                    'key': key
+                })
+                
+                current_time += total_duration
+                total_time += total_duration
+    
+    # Create subplot figure
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            '<b>(A) Sequential Pipeline Execution (Baseline)</b>',
+            '<b>(B) Component Latency Distribution</b>',
+            '<b>(C) Optimization Impact</b>'
+        ),
+        specs=[
+            [{"type": "bar", "colspan": 2}, None],
+            [{"type": "bar"}, {"type": "table"}]
+        ],
+        row_heights=[0.5, 0.5],
+        vertical_spacing=0.2,
+        horizontal_spacing=0.2
     )
     
-    op_names = [op.split('::')[1] for op, _ in sorted_ops]
-    timings = [
-        (np.mean(times), np.min(times), np.max(times))
-        for _, times in sorted_ops
+    # Professional color scheme (lighter, more vibrant)
+    colors = {
+        'SlideParser': '#66BB6A',         # Light green - fast operation
+        'NarrationGenerator': '#42A5F5',  # Light blue - moderate operation
+        'TTSEngine': '#EF5350'            # Light red - bottleneck
+    }
+    
+    # ============================================
+    # Subplot 1: Sequential Timeline (Gantt-style)
+    # ============================================
+    for i, item in enumerate(timeline_data):
+        # Use auto positioning for small bars
+        text_position = 'auto' if item['duration'] < 1.0 else 'inside'
+        
+        fig.add_trace(go.Bar(
+            name=item['label'],
+            x=[item['duration']],
+            y=['Pipeline<br>Execution'],
+            orientation='h',
+            marker=dict(
+                color=colors[item['component']],
+                line=dict(color='rgba(0,0,0,0.2)', width=1)
+            ),
+            text=f"{item['label']}<br>{item['duration']:.2f}s",
+            textposition=text_position,
+            textfont=dict(size=14, color='white' if text_position == 'inside' else '#333', family='Arial'),
+            base=item['start'],
+            hovertemplate=(
+                f"<b>{item['label']}</b><br>" +
+                f"Duration: {item['duration']:.2f}s<br>" +
+                f"Count: {item['count']}<br>" +
+                "<extra></extra>"
+            ),
+            showlegend=False
+        ), row=1, col=1)
+    
+    # Add critical path annotation
+    fig.add_annotation(
+        x=total_time / 2,
+        y=0,
+        text=f"<b>Total Blocking Time: {total_time:.1f}s</b><br><i>User cannot access presentation</i>",
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor='#D32F2F',
+        ax=0,
+        ay=-70,
+        font=dict(size=15, color='#333', family='Arial'),
+        bgcolor='rgba(255,235,235,0.95)',
+        bordercolor='#D32F2F',
+        borderwidth=2,
+        borderpad=6,
+        row=1, col=1
+    )
+    
+    # ============================================
+    # Subplot 2: Component Breakdown
+    # ============================================
+    component_names = [item['label'] for item in timeline_data]
+    durations = [item['duration'] for item in timeline_data]
+    percentages = [d / total_time * 100 for d in durations]
+    bar_colors = [colors[item['component']] for item in timeline_data]
+    
+    fig.add_trace(go.Bar(
+        x=component_names,
+        y=durations,
+        marker=dict(
+            color=bar_colors,
+            line=dict(color='rgba(0,0,0,0.3)', width=1)
+        ),
+        text=[f"{d:.2f}s<br>({p:.1f}%)" for d, p in zip(durations, percentages)],
+        textposition='outside',
+        textfont=dict(size=15, family='Arial'),
+        hovertemplate=(
+            "<b>%{x}</b><br>" +
+            "Time: %{y:.2f}s<br>" +
+            "<extra></extra>"
+        ),
+        showlegend=False
+    ), row=2, col=1)
+    
+    # Highlight TTS as bottleneck
+    tts_idx = next((i for i, item in enumerate(timeline_data) if item['component'] == 'TTSEngine'), None)
+    if tts_idx is not None:
+        fig.add_annotation(
+            x=tts_idx,
+            y=durations[tts_idx] * 0.35,  # Position lower in the bar to avoid text overlap
+            text="Primary Bottleneck",
+            showarrow=False,
+            font=dict(size=13, color='#333', family='Arial'),
+            bgcolor='rgba(255,235,235,0.95)',
+            bordercolor='#D32F2F',
+            borderwidth=2,
+            borderpad=4,
+            row=2, col=1
+        )
+    
+    # ============================================
+    # Subplot 3: Optimization Impact Table
+    # ============================================
+    # Calculate first slide time vs total time
+    # With progressive loading: parse all slides + first narration + first audio
+    first_slide_time = (
+        timeline_data[0]['duration'] +           # SlideParser (all slides)
+        timeline_data[1]['avg_duration'] +       # NarrationGenerator (1 slide)
+        timeline_data[2]['avg_duration']         # TTSEngine (1 slide audio)
+    )
+    time_saved = total_time - first_slide_time
+    improvement_pct = (time_saved / total_time) * 100
+    
+    table_data = [
+        ['Metric', 'Sequential', 'Progressive', 'Improvement'],
+        ['Time to First Slide', f'{total_time:.2f}s', f'{first_slide_time:.2f}s', f'{improvement_pct:.1f}% faster'],
+        ['User Experience', 'Blocking', 'Non-blocking', 'Progressive loading'],
+        ['Audio Generation', 'Synchronous', 'Asynchronous', 'Background processing']
     ]
     
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # Extract columns
+    headers = table_data[0]
+    cells = list(zip(*table_data[1:]))
     
-    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#F7B731', '#5F27CD']
-    x = np.arange(len(op_names))
+    fig.add_trace(go.Table(
+        header=dict(
+            values=headers,
+            fill_color='#1565C0',
+            align='left',
+            font=dict(color='white', size=16, family='Arial'),
+            height=35
+        ),
+        cells=dict(
+            values=cells,
+            fill_color=[['#f5f5f5', 'white', '#f5f5f5', 'white']],
+            align='left',
+            font=dict(color='#333', size=15, family='Arial'),
+            height=32
+        )
+    ), row=2, col=2)
     
-    avgs = [t[0] for t in timings]
-    mins = [t[1] for t in timings]
-    maxs = [t[2] for t in timings]
-    
-    errors = [np.array(avgs) - np.array(mins), np.array(maxs) - np.array(avgs)]
-    
-    bars = ax.bar(x, avgs, yerr=errors, capsize=10, color=colors[:len(op_names)],
-                  edgecolor='black', linewidth=2, alpha=0.8,
-                  error_kw={'elinewidth': 2, 'capthick': 3})
-    
-    # Add value labels
-    for i, (bar, avg, min_v, max_v) in enumerate(zip(bars, avgs, mins, maxs)):
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{avg:.2f}s\n({min_v:.2f}s-{max_v:.2f}s)',
-                ha='center', va='bottom', fontsize=11, fontweight='bold')
-    
-    # Calculate total pipeline time
-    total_time = sum(avgs)
-    
-    ax.set_ylabel('Time (seconds)', fontsize=12, fontweight='bold')
-    ax.set_title(f'{name} Pipeline Latencies\nTotal: {total_time:.2f}s', 
-                 fontsize=14, fontweight='bold', pad=20)
-    ax.set_xticks(x)
-    ax.set_xticklabels(op_names, fontsize=11, fontweight='bold')
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
-    ax.set_axisbelow(True)
-    
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
-    else:
-        plt.show()
-
-
-def plot_pipeline_timeline(name: str, events: List[Dict], output_path: Optional[Path] = None) -> None:
-    """Plot timeline of sequential execution for a pipeline."""
-    if not events:
-        return
-    
-    component_times = aggregate_by_component(events)
-    
-    # Order operations sequentially
-    operation_order = {
-        'SlideParser::parse': 0,
-        'NarrationGenerator::generate_narration': 1,
-        'STTEngine::transcribe': 0,
-        'QuestionHandler::answer_question': 1,
-        'TTSEngine::generate_audio': 2,
-    }
-    
-    sorted_ops = sorted(
-        component_times.items(),
-        key=lambda x: operation_order.get(x[0], 999)
+    # ============================================
+    # Layout Configuration
+    # ============================================
+    fig.update_xaxes(title_text="Time (seconds)", row=1, col=1, showgrid=True, gridcolor='#E0E0E0')
+    fig.update_xaxes(title_text="Component", row=2, col=1, showgrid=False)
+    fig.update_yaxes(showticklabels=False, row=1, col=1)
+    # Set y-axis range for component breakdown to accommodate labels above bars
+    max_duration = max(durations) if durations else 0
+    fig.update_yaxes(
+        title_text="Time (seconds)", 
+        row=2, col=1, 
+        showgrid=True, 
+        gridcolor='#E0E0E0',
+        range=[0, max_duration * 1.2]  # Add 20% padding for text labels
     )
     
-    fig, ax = plt.subplots(figsize=(14, 5))
+    fig.update_layout(
+        height=1000,
+        showlegend=False,
+        plot_bgcolor='white',
+        paper_bgcolor='#FAFAFA',
+        font=dict(family='Arial', size=15, color='#333'),
+        margin=dict(t=80, b=60, l=60, r=60)
+    )
     
-    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
-    y_pos = 1
-    current_time = 0
+    # Update subplot title font size
+    for i, annotation in enumerate(fig['layout']['annotations']):
+        # Only update the first 4 annotations which are subplot titles
+        # (not the custom annotations like "Total Blocking Time" and "Primary Bottleneck")
+        if i < 4 and annotation['text'] and annotation['text'].startswith('<b>'):
+            annotation['font'] = dict(size=14, family='Arial')
     
-    for idx, (op_key, times) in enumerate(sorted_ops):
-        avg_time = np.sum(times)
-        op_name = op_key.split('::')[1]
-        color = colors[min(idx, len(colors)-1)]
-        
-        # Draw bar
-        ax.barh(y_pos, avg_time, left=current_time, height=0.4,
-                color=color, edgecolor='black', linewidth=2)
-        
-        # Alternate label positions to avoid overlap
-        mid_point = current_time + avg_time / 2
-        if idx % 2 == 0:
-            # Even index: labels above the bar
-            ax.text(mid_point, y_pos + 0.35, f'{op_name}\n{avg_time:.2f}s',
-                    ha='center', va='bottom', fontsize=11, fontweight='bold')
-        else:
-            # Odd index: labels below the bar
-            ax.text(mid_point, y_pos - 0.35, f'{op_name}\n{avg_time:.2f}s',
-                    ha='center', va='top', fontsize=11, fontweight='bold')
-        
-        current_time += avg_time
-    
-    # Add total at the end
-    ax.text(current_time + 0.3, y_pos, f'Total: {current_time:.2f}s',
-            fontsize=12, fontweight='bold', va='center',
-            bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.7))
-    
-    ax.set_ylim(0.3, 1.8)
-    ax.set_xlim(0, current_time + 2)
-    ax.set_xlabel('Time (seconds)', fontsize=12, fontweight='bold')
-    ax.set_title(f'{name} Pipeline Timeline', fontsize=14, fontweight='bold', pad=20)
-    ax.set_yticks([])
-    ax.grid(axis='x', alpha=0.3, linestyle='--')
-    ax.set_axisbelow(True)
-    
-    plt.tight_layout()
-    
+    # Save or show
     if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        fig.write_html(output_path.with_suffix('.html'))
+        print(f"✓ Saved interactive: {output_path.with_suffix('.html')}")
+        
+        # Also save as static image if kaleido is available
+        try:
+            fig.write_image(output_path, width=1600, height=900, scale=2)
+            print(f"✓ Saved static: {output_path}")
+        except Exception as e:
+            print(f"⚠ Could not save static image: {e}")
     else:
-        plt.show()
+        fig.show()
 
 
-def plot_total_time_by_component(events: List[Dict], output_path: Optional[Path] = None) -> None:
-    """Plot total time spent in each component across all events."""
+def print_pipeline_stats(events: List[Dict]) -> None:
+    """Print statistics for the pipeline."""
     if not events:
-        return
-    
-    component_total_time = defaultdict(float)
-    component_count = defaultdict(int)
-    
-    for event in events:
-        component = event['component']
-        component_total_time[component] += event['duration_seconds']
-        component_count[component] += 1
-    
-    # Sort by total time
-    components = sorted(component_total_time.items(), key=lambda x: x[1], reverse=True)
-    comp_names = [c[0] for c in components]
-    comp_times = [c[1] for c in components]
-    comp_counts = [component_count[c] for c in comp_names]
-    
-    fig, ax = plt.subplots(figsize=(10, 6))
-    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#F7B731', '#5F27CD']
-    x = np.arange(len(comp_names))
-    bars = ax.bar(x, comp_times, color=colors[:len(comp_names)], edgecolor='black', linewidth=2, alpha=0.8)
-    
-    # Add value labels
-    for bar, time, count in zip(bars, comp_times, comp_counts):
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{time:.2f}s\n({count}x)',
-                ha='center', va='bottom', fontsize=11, fontweight='bold')
-    
-    ax.set_ylabel('Total Time (seconds)', fontsize=12, fontweight='bold')
-    ax.set_title('Total Latency by Component (All Events)', fontsize=14, fontweight='bold', pad=20)
-    ax.set_xticks(x)
-    ax.set_xticklabels(comp_names, fontsize=11, fontweight='bold')
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
-    ax.set_axisbelow(True)
-    
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
-    else:
-        plt.show()
-
-
-def plot_time_distribution(events: List[Dict], output_path: Optional[Path] = None) -> None:
-    """Plot time distribution as a pie chart with legend."""
-    if not events:
-        return
-    
-    component_total_time = defaultdict(float)
-    
-    for event in events:
-        component = event['component']
-        component_total_time[component] += event['duration_seconds']
-    
-    # Sort by total time
-    components = sorted(component_total_time.items(), key=lambda x: x[1], reverse=True)
-    comp_names = [c[0] for c in components]
-    comp_times = [c[1] for c in components]
-    
-    # Calculate percentages
-    total_time = sum(comp_times)
-    percentages = [t / total_time * 100 for t in comp_times]
-    
-    fig, ax = plt.subplots(figsize=(14, 8))
-    colors = plt.cm.Set3(np.linspace(0, 1, len(comp_names)))
-    
-    # Create pie chart without labels (cleaner look)
-    wedges, autotexts = ax.pie(comp_times, colors=colors, startangle=90,
-                                textprops={'fontsize': 0})  # Hide text on pie
-    
-    # Create legend with component names and percentages
-    legend_labels = [f'{name}: {time:.2f}s ({pct:.1f}%)' 
-                     for name, time, pct in zip(comp_names, comp_times, percentages)]
-    ax.legend(legend_labels, loc='center left', bbox_to_anchor=(1, 0.5),
-              fontsize=11, frameon=True)
-    
-    ax.set_title('Time Distribution Across Components (All Events)', 
-                 fontsize=14, fontweight='bold', pad=20)
-    
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
-    else:
-        plt.show()
-
-
-def print_pipeline_stats(name: str, events: List[Dict]) -> None:
-    """Print statistics for a pipeline."""
-    if not events:
-        print(f"\n{name}: No events recorded")
+        print("\nNo events recorded")
         return
     
     component_times = aggregate_by_component(events)
     
     print(f"\n{'='*80}")
-    print(f"{name.upper()}")
+    print(f"PROCESSING PIPELINE ANALYSIS")
     print(f"{'='*80}")
     
     total_time = sum(e['duration_seconds'] for e in events)
@@ -350,8 +376,10 @@ def print_pipeline_stats(name: str, events: List[Dict]) -> None:
         print(f"  Total:     {sum(times):.3f}s")
     
     print(f"\n{'-'*80}")
-    print(f"Operations: {total_ops} | Total Time: {total_time:.3f}s")
-    print(f"{'='*80}")
+    print(f"Total Operations: {total_ops}")
+    print(f"Total Pipeline Time: {total_time:.3f}s")
+    print(f"Average Per Operation: {total_time/total_ops:.3f}s")
+    print(f"{'='*80}\n")
 
 
 def main():
@@ -367,43 +395,25 @@ def main():
     print(f"\nLoading: {benchmark_file.name}\n")
     data = load_benchmark_data(benchmark_file)
     
-    # Classify events into pipelines
-    upload_events, qa_events = classify_events(data['events'])
-    all_events = data['events']
+    # Extract processing pipeline events only
+    processing_events = get_processing_events(data['events'])
     
     # Print statistics
-    print_pipeline_stats("Processing Pipeline", upload_events)
-    print_pipeline_stats("Q&A Pipeline", qa_events)
+    print_pipeline_stats(processing_events)
     
     # Create output directory
     output_dir = benchmark_file.parent / "graphs"
     output_dir.mkdir(exist_ok=True)
     
-    # Generate separate graphs for each pipeline
-    print("\nGenerating graphs...")
+    # Generate the pipeline performance visualization
+    print("\nGenerating pipeline performance visualization...")
     
-    if upload_events:
-        upload_timeline = output_dir / "01_processing_pipeline_timeline.png"
-        plot_pipeline_timeline("Processing", upload_events, upload_timeline)
-        
-        upload_latencies = output_dir / "02_processing_pipeline_latencies.png"
-        plot_pipeline_latencies("Processing", upload_events, upload_latencies)
+    output_path = output_dir / "pipeline_analysis.png"
+    create_pipeline_visualization(processing_events, output_path)
     
-    if qa_events:
-        qa_timeline = output_dir / "03_qa_pipeline_timeline.png"
-        plot_pipeline_timeline("Q&A", qa_events, qa_timeline)
-        
-        qa_latencies = output_dir / "04_qa_pipeline_latencies.png"
-        plot_pipeline_latencies("Q&A", qa_events, qa_latencies)
-    
-    # Generate overall component statistics
-    total_time_path = output_dir / "05_total_time_by_component.png"
-    plot_total_time_by_component(all_events, total_time_path)
-    
-    distribution_path = output_dir / "06_time_distribution.png"
-    plot_time_distribution(all_events, distribution_path)
-    
-    print(f"\n✓ Graphs saved to: {output_dir}\n")
+    print(f"\n✓ Visualization saved to: {output_dir}\n")
+    print("Interactive HTML version available:")
+    print(f"   {output_dir / 'pipeline_analysis.html'}\n")
 
 
 if __name__ == "__main__":
