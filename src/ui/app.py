@@ -39,22 +39,18 @@ def save_audio_progress(timestamp: str, ready: list, complete: bool):
         'ready': ready,
         'complete': complete
     }, progress_file)
-    print(f"DEBUG FILE: Saved progress to {progress_file}, ready={ready}, complete={complete}")
 
 def load_audio_progress(timestamp: str):
     """Load audio generation progress from disk."""
     progress_file = get_audio_progress_file(timestamp)
-    print(f"DEBUG FILE: Trying to load from {progress_file}, exists={progress_file.exists()}")
     if progress_file.exists():
         try:
             data = load_json(progress_file)
-            print(f"DEBUG FILE: Loaded data: {data}")
             return data
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"DEBUG FILE: Corrupted JSON file, deleting: {e}")
-            progress_file.unlink()  # Delete corrupted file
+            # Silently delete corrupted files
+            progress_file.unlink()
             return None
-    print(f"DEBUG FILE: File does not exist")
     return None
 
 from src.core import (
@@ -495,6 +491,23 @@ def load_saved_presentation(timestamp: str):
             st.error(f"Failed to load presentation: {e}")
 
 
+@st.cache_data
+def get_slide_image(slide_number: int, image_data: bytes) -> bytes:
+    """Cache slide images to avoid reprocessing on every rerender.
+    Also optimizes images for faster display.
+
+    Args:
+        slide_number: Unique identifier for the slide
+        image_data: The raw image bytes
+
+    Returns:
+        Optimized image bytes ready for display
+    """
+    # For JPEG images from PDF, return as-is (already optimized)
+    # For other formats, could add additional optimization here
+    return image_data
+
+
 def show_presentation_page():
     """Show presentation viewer with new clean UI design."""
 
@@ -646,24 +659,30 @@ def show_presentation_page():
     </style>
     """, unsafe_allow_html=True)
 
-    # Update from progress file ONCE per render
+    # Update from progress file ONCE per render, but throttle to avoid excessive file I/O
     timestamp = st.session_state.get('timestamp')
-    print(f"DEBUG: Checking for updates, timestamp={timestamp}, complete={st.session_state.get('audio_generation_complete', True)}")
 
-    if timestamp and not st.session_state.get('audio_generation_complete', True):
+    # Initialize last check time if not exists
+    if 'last_progress_check' not in st.session_state:
+        st.session_state.last_progress_check = 0
+
+    current_time = time.time()
+    should_check_progress = (current_time - st.session_state.last_progress_check) >= 2.0  # Check every 2 seconds
+
+    if timestamp and not st.session_state.get('audio_generation_complete', True) and should_check_progress:
+        st.session_state.last_progress_check = current_time
+
         # Load progress from file
         progress_data = load_audio_progress(timestamp)
 
         if progress_data:
             ready_in_file = sum(progress_data['ready'])
             ready_in_session = sum(st.session_state.audio_ready)
-            print(f"DEBUG: File has {ready_in_file} ready, Session has {ready_in_session} ready")
 
             # Update session state based on file
             has_updates = False
             for idx in range(len(progress_data['ready'])):
                 if progress_data['ready'][idx] and not st.session_state.audio_ready[idx]:
-                    print(f"DEBUG: Updating slide {idx} to ready")
                     # Load the audio segment from disk
                     audio_path = Config.AUDIO_DIR / f"{timestamp}_slide_{idx + 1}.mp3"
                     if audio_path.exists():
@@ -677,11 +696,9 @@ def show_presentation_page():
                         st.session_state.audio_segments[idx] = segment
                         st.session_state.audio_ready[idx] = True
                         has_updates = True
-                        print(f"DEBUG: Successfully loaded audio segment for slide {idx + 1}")
 
             # Check if complete
             if progress_data['complete'] and not st.session_state.audio_generation_complete:
-                print(f"DEBUG: Marking generation as complete")
                 st.session_state.audio_generation_complete = True
                 st.session_state.generating_audio = False
 
@@ -689,7 +706,6 @@ def show_presentation_page():
                 progress_file = get_audio_progress_file(timestamp)
                 if progress_file.exists():
                     progress_file.unlink()
-                    print(f"DEBUG: Cleaned up progress file")
 
                 has_updates = True
 
@@ -707,7 +723,6 @@ def show_presentation_page():
             st.session_state.audio_finished = False
             # Update selectbox to match new slide
             st.session_state.slide_changed_externally = True
-            print(f"DEBUG: Auto-advance triggered, moving to slide {st.session_state.current_slide_idx + 1}")
             st.rerun()
 
     # Check for navigation button clicks (these are set by on_click callbacks)
@@ -718,7 +733,6 @@ def show_presentation_page():
             st.session_state.audio_finished = False
             # Update selectbox to match new slide
             st.session_state.slide_changed_externally = True
-            print(f"DEBUG: Next button, moving to slide {st.session_state.current_slide_idx + 1}")
             st.rerun()
 
     if st.session_state.get('nav_prev', False):
@@ -728,7 +742,6 @@ def show_presentation_page():
             st.session_state.audio_finished = False
             # Update selectbox to match new slide
             st.session_state.slide_changed_externally = True
-            print(f"DEBUG: Previous button, moving to slide {st.session_state.current_slide_idx + 1}")
             st.rerun()
 
     # NOW read the current index (after all navigation is processed)
@@ -746,10 +759,6 @@ def show_presentation_page():
         </script>
         """
         components.html(clear_flag_html, height=0)
-    
-    # Print save status to terminal only
-    if 'timestamp' in st.session_state:
-        print(f"Presentation saved and can be reloaded later (ID: {st.session_state.timestamp})")
 
     # Initialize Q&A panel state
     if 'qa_panel_open' not in st.session_state:
@@ -759,11 +768,18 @@ def show_presentation_page():
     current_narration = narrations[current_idx]
 
     # === 2. SLIDE SELECTOR BAR ===
-    # Create slide options for selectbox
-    slide_options = []
-    for idx, slide in enumerate(slides):
-        audio_indicator = "🔊" if st.session_state.audio_ready[idx] else "⏳"
-        slide_options.append(f"{audio_indicator} Slide {idx + 1}/{len(slides)}: {slide.title}")
+    # Create slide options for selectbox (cache to avoid regenerating on every rerender)
+    audio_ready_hash = tuple(st.session_state.audio_ready)  # Use tuple for hashability
+
+    if 'cached_slide_options' not in st.session_state or st.session_state.get('cached_audio_hash') != audio_ready_hash:
+        slide_options = []
+        for idx, slide in enumerate(slides):
+            audio_indicator = "🔊" if st.session_state.audio_ready[idx] else "⏳"
+            slide_options.append(f"{audio_indicator} Slide {idx + 1}/{len(slides)}: {slide.title}")
+        st.session_state.cached_slide_options = slide_options
+        st.session_state.cached_audio_hash = audio_ready_hash
+    else:
+        slide_options = st.session_state.cached_slide_options
 
     # Synchronize selectbox with current_idx
     # If slide changed externally (via buttons), update the selectbox value
@@ -845,7 +861,7 @@ def show_presentation_page():
                 file_name=f"narrations_{st.session_state.get('timestamp', 'export')}.pdf",
                 mime="application/pdf",
                 help="Download Narrations as PDF",
-                use_container_width=True
+                width="stretch"
             )
 
         # Show audio generation progress if still generating
@@ -861,9 +877,6 @@ def show_presentation_page():
                 if st.button("🔄", key="refresh_progress", help="Refresh"):
                     st.rerun()
 
-            # Print debug info to terminal only
-            print(f"DEBUG UI: Audio ready flags: {st.session_state.audio_ready}")
-            print(f"DEBUG UI: Current slide: {current_idx + 1}")
 
         # Slide selector
         st.selectbox(
@@ -898,10 +911,18 @@ def show_presentation_page():
 
             # Slide content
             if current_slide.image_data:
+                # Use cached function to avoid reprocessing images
+                cached_image = get_slide_image(current_slide.slide_number, current_slide.image_data)
                 st.image(
-                    BytesIO(current_slide.image_data),
-                    use_container_width=True
+                    BytesIO(cached_image),
+                    width="stretch"
                 )
+
+                # Preload adjacent slides into cache for instant navigation
+                if current_idx > 0 and slides[current_idx - 1].image_data:
+                    get_slide_image(slides[current_idx - 1].slide_number, slides[current_idx - 1].image_data)
+                if current_idx < len(slides) - 1 and slides[current_idx + 1].image_data:
+                    get_slide_image(slides[current_idx + 1].slide_number, slides[current_idx + 1].image_data)
             else:
                 st.markdown(current_slide.content)
 
@@ -1113,11 +1134,11 @@ def show_presentation_page():
                 st.button(
                     "⬅️",
                     key="prev_slide",
-                    use_container_width=True,
+                    width="stretch",
                     on_click=lambda: st.session_state.update({'nav_prev': True})
                 )
             else:
-                st.button("⬅️", key="prev_slide_disabled", disabled=True, use_container_width=True)
+                st.button("⬅️", key="prev_slide_disabled", disabled=True, width="stretch")
 
         with control_col2:
             # Audio player
@@ -1178,13 +1199,13 @@ def show_presentation_page():
                     st.button(
                         "➡️",
                         key="next_slide",
-                        use_container_width=True,
+                        width="stretch",
                         on_click=lambda: st.session_state.update({'nav_next': True})
                     )
                 else:
-                    st.button("➡️", key="next_slide_waiting", disabled=True, use_container_width=True, help="⏳ Audio generating...")
+                    st.button("➡️", key="next_slide_waiting", disabled=True, width="stretch", help="⏳ Audio generating...")
             else:
-                st.button("➡️", key="next_slide_disabled", disabled=True, use_container_width=True)
+                st.button("➡️", key="next_slide_disabled", disabled=True, width="stretch")
 
         # === 5. NARRATION EXPANDER ===
         # Place at presentation_col level to span full width

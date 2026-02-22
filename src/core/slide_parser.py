@@ -51,13 +51,13 @@ class Slide:
 class SlideParser:
     """Parse slide decks and extract structured content."""
     
-    def __init__(self, use_vision: bool = False, zoom: float = 3.0):
+    def __init__(self, use_vision: bool = False, zoom: float = 1.5):
         """
         Initialize slide parser.
         
         Args:
             use_vision: Whether to use vision models for image-heavy slides
-            zoom: Zoom factor for rendering PDF pages as images (higher value = better quality)
+            zoom: Zoom factor for rendering PDF pages as images (default 1.5 for good quality/performance balance)
         """
         self.use_vision = use_vision
         self.zoom = zoom
@@ -121,10 +121,13 @@ class SlideParser:
                 # Optionally extract page as image for vision models
                 image_data = None
                 if self.use_vision:
-                    mat = fitz.Matrix(self.zoom, self.zoom)  # Use configurable zoom
+                    mat = fitz.Matrix(self.zoom, self.zoom)  # Use configurable zoom (default 1.5)
                     pix = page.get_pixmap(matrix=mat)
-                    image_data = pix.tobytes("png")
-                
+
+                    # Convert to JPEG for much smaller file size (5-10x smaller than PNG)
+                    # Quality 85 provides good balance between quality and file size
+                    image_data = pix.tobytes("jpeg", jpg_quality=85)
+
                 slides.append(Slide(
                     slide_number=page_num,
                     title=title.strip(),
