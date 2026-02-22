@@ -1,0 +1,82 @@
+# CPU-only Dockerfile for PresentLM
+# Use this if you don't have a GPU or want to run on CPU only
+
+FROM python:3.10-slim
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    curl \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Upgrade pip
+RUN pip3 install --upgrade pip setuptools wheel
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install PyTorch CPU version
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install other requirements
+RUN pip3 install -r requirements.txt
+
+# Install Qwen dependencies
+RUN pip3 install \
+    transformers>=4.37.0 \
+    accelerate>=0.26.0 \
+    scipy>=1.11.0 \
+    soundfile>=0.12.0 \
+    librosa>=0.10.0
+
+# Copy application
+COPY . /app
+
+# Create directories
+RUN mkdir -p /app/data/slides \
+    /app/data/audio \
+    /app/data/narrations \
+    /app/.cache/huggingface
+
+# Set cache directory
+ENV HF_HOME=/app/.cache/huggingface \
+    TRANSFORMERS_CACHE=/app/.cache/huggingface
+
+# Expose port
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# Entrypoint
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "ℹ️  Running in CPU mode"\n\
+if [ ! -f /app/.env ]; then\n\
+    echo "⚠️  .env file not found"\n\
+    if [ -f /app/.env.example ]; then\n\
+        cp /app/.env.example /app/.env\n\
+    fi\n\
+fi\n\
+echo "🚀 Starting PresentLM..."\n\
+streamlit run src/ui/app.py --server.port=8501 --server.address=0.0.0.0\n\
+' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+

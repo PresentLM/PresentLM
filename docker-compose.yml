@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  presentlm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: presentlm-app
+    ports:
+      - "8501:8501"
+    volumes:
+      # Mount data directory for persistent storage
+      - ./data:/app/data
+      # Mount .env file for configuration
+      - ./.env:/app/.env:ro
+      # Mount Hugging Face cache for model persistence
+      - ./cache/huggingface:/app/.cache/huggingface
+    environment:
+      # CUDA settings
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # Python settings
+      - PYTHONUNBUFFERED=1
+      # App settings (can be overridden by .env file)
+      - TTS_PROVIDER=${TTS_PROVIDER:-qwen}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_USE_VISION=${LLM_USE_VISION:-true}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # CPU-only variant (uncomment to use without GPU)
+  # presentlm-cpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.cpu
+  #   container_name: presentlm-app-cpu
+  #   ports:
+  #     - "8501:8501"
+  #   volumes:
+  #     - ./data:/app/data
+  #     - ./.env:/app/.env:ro
+  #     - ./cache/huggingface:/app/.cache/huggingface
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #     - TTS_PROVIDER=${TTS_PROVIDER:-openai}
+  #   restart: unless-stopped
+
+volumes:
+  huggingface_cache:
+    driver: local
+
