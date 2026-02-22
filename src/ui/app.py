@@ -415,7 +415,7 @@ TEST_MODE=true
                     first_slide_ready = True
                     break
                 time.sleep(0.5)
-
+            time.sleep(1)
         # Save metadata
         metadata = {
             "timestamp": timestamp,
@@ -854,15 +854,15 @@ def show_presentation_page():
 
         with toolbar_col3:
             # Export button - generates PDF with slides and narrations
-            pdf_bytes = generate_narration_pdf(slides, narrations)
             st.download_button(
                 label="📥",
-                data=pdf_bytes,
+                data=lambda : generate_narration_pdf(slides, narrations),
                 file_name=f"narrations_{st.session_state.get('timestamp', 'export')}.pdf",
                 mime="application/pdf",
                 help="Download Narrations as PDF",
                 width="stretch"
             )
+
 
         # Show audio generation progress if still generating
         if not st.session_state.get('audio_generation_complete', True):

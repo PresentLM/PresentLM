@@ -31,7 +31,8 @@ class Config:
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4-turbo")
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
     LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2000"))
-    
+    LLM_USE_VISION = os.getenv("LLM_USE_VISION", "true").lower() == "true"  # Use vision models for image analysis
+
     # TTS Configuration
     TTS_PROVIDER = os.getenv("TTS_PROVIDER", "openai")  # openai, elevenlabs, google, edge
     TTS_VOICE = os.getenv("TTS_VOICE", "alloy")
