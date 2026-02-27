@@ -44,7 +44,8 @@ class QuestionHandler:
         current_slide: Slide,
         current_narration: SlideNarration,
         all_slides: List[Slide],
-        additional_context: Optional[str] = None
+        additional_context: Optional[str] = None,
+        use_vision: bool = True
     ) -> str:
         """
         Answer a user question in context of the current slide.
@@ -55,7 +56,8 @@ class QuestionHandler:
             current_narration: The narration for current slide
             all_slides: All slides in presentation
             additional_context: Any additional context (notes, documents)
-            
+            use_vision: Whether to include slide image in the prompt (default: True)
+
         Returns:
             Answer text
         """
@@ -70,12 +72,19 @@ class QuestionHandler:
             current_slide,
             current_narration,
             all_slides,
-            additional_context
+            additional_context,
+            use_vision
         )
         
-        # Get answer from LLM
-        answer = self._answer_openai(prompt)
-        
+        # Get answer from LLM (with optional image)
+        image_data = current_slide.image_data_compressed if (use_vision and current_slide.image_data_compressed) else None
+
+        # Log vision usage
+        if image_data:
+            print(f"🎨 Question answering: Using vision for slide {current_slide.slide_number} ({len(image_data)/1024:.1f} KB image)")
+
+        answer = self._answer_openai(prompt, image_data=image_data)
+
         # End benchmarking
         duration = benchmark.end_timer(
             timer_id,
@@ -110,7 +119,8 @@ class QuestionHandler:
         current_slide: Slide,
         current_narration: SlideNarration,
         all_slides: List[Slide],
-        additional_context: Optional[str]
+        additional_context: Optional[str],
+        use_vision: bool
     ) -> str:
         """Build prompt for answering question."""
         
@@ -118,6 +128,19 @@ class QuestionHandler:
         prev_slide = all_slides[current_slide.slide_number - 2] if current_slide.slide_number > 1 else None
         next_slide = all_slides[current_slide.slide_number] if current_slide.slide_number < len(all_slides) else None
         
+        # Add vision-specific instructions if image is present
+        vision_instruction = ""
+        if use_vision and current_slide.image_data:
+            vision_instruction = """
+The slide image is provided. Please analyze:
+- Visual elements (diagrams, charts, images, graphics)
+- Layout and design elements that convey meaning
+- Text visible in the image that may not be captured in the content above
+- Colors, icons, or visual metaphors that enhance understanding
+
+Use the visual information to provide more accurate and complete answers.
+"""
+
         prompt = f"""You are an AI assistant helping a user during a presentation. The user is viewing a specific slide and has asked a question.
 
 CURRENT SLIDE (Slide {current_slide.slide_number}):
@@ -130,6 +153,8 @@ Narration: {current_narration.narration_text}
 
 {f"ADDITIONAL CONTEXT: {additional_context}" if additional_context else ""}
 
+{vision_instruction}
+
 CONVERSATION HISTORY:
 {self._format_conversation_history()}
 
@@ -140,6 +165,7 @@ INSTRUCTIONS:
 2. Reference the current slide content when relevant
 3. Keep answers focused and suitable for spoken delivery
 4. If you don't know or it's not in the context, say so honestly
+{f"5. Use visual information from the slide image to enhance your answer" if use_vision and current_slide.image_data else ""}
 
 Provide ONLY the answer, without any meta-commentary."""
         
@@ -157,14 +183,57 @@ Provide ONLY the answer, without any meta-commentary."""
         
         return "\n\n".join(formatted)
     
-    def _answer_openai(self, prompt: str) -> str:
-        """Answer using OpenAI."""
+    def _answer_openai(self, prompt: str, image_data: Optional[bytes] = None) -> str:
+        """Answer using OpenAI with optional vision support.
+
+        Args:
+            prompt: Text prompt
+            image_data: Optional image bytes (JPEG/PNG) for vision models
+
+        Returns:
+            Generated answer text
+        """
+        messages = [
+            {"role": "system", "content": "You are a helpful presentation assistant that answers questions about slide content."}
+        ]
+
+        # If image data is provided, use vision model
+        if image_data:
+            # Encode image to base64
+            import base64
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+
+            # Create multi-modal message with image
+            messages.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}",
+                            "detail": "high"  # high detail for better analysis
+                        }
+                    }
+                ]
+            })
+
+            # Use vision-capable model
+            model = self.model if "vision" in self.model.lower() or "gpt-4" in self.model.lower() else "gpt-4-turbo"
+        else:
+            # Text-only message
+            messages.append({
+                "role": "user",
+                "content": prompt
+            })
+            model = self.model
+
         response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a helpful presentation assistant that answers questions about slide content."},
-                {"role": "user", "content": prompt}
-            ],
+            model=model,
+            messages=messages,
             temperature=0.7,
             max_tokens=500  # Shorter answers for questions
         )

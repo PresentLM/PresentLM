@@ -22,8 +22,9 @@ class Slide:
     title: str
     content: str
     notes: str = ""
-    image_data: Optional[bytes] = None
-    
+    image_data: Optional[bytes] = None  # Original high-res image
+    image_data_compressed: Optional[bytes] = None  # Compressed for LLM
+
     def to_dict(self) -> Dict:
         """Convert slide to dictionary."""
         return {
@@ -32,6 +33,7 @@ class Slide:
             "content": self.content,
             "notes": self.notes,
             "image_data": base64.b64encode(self.image_data).decode('utf-8') if self.image_data else None,
+            "image_data_compressed": base64.b64encode(self.image_data_compressed).decode('utf-8') if self.image_data_compressed else None,
             "has_image": self.image_data is not None
         }
     
@@ -39,12 +41,14 @@ class Slide:
     def from_dict(cls, data: Dict) -> 'Slide':
         """Create Slide from dictionary."""
         image_data = base64.b64decode(data['image_data']) if data.get('image_data') else None
+        image_data_compressed = base64.b64decode(data['image_data_compressed']) if data.get('image_data_compressed') else None
         return cls(
             slide_number=data['slide_number'],
             title=data['title'],
             content=data['content'],
             notes=data.get('notes', ""),
-            image_data=image_data
+            image_data=image_data,
+            image_data_compressed=image_data_compressed
         )
 
 
@@ -120,19 +124,26 @@ class SlideParser:
                 
                 # Optionally extract page as image for vision models
                 image_data = None
+                image_data_compressed = None
+                # Always extract original high-res image (PNG, zoom 2.0)
+                mat_orig = fitz.Matrix(2.0, 2.0)
+                pix_orig = page.get_pixmap(matrix=mat_orig)
+                image_data = pix_orig.tobytes("png")
+                # If vision enabled, also extract compressed JPEG
                 if self.use_vision:
-                    mat = fitz.Matrix(self.zoom, self.zoom)  # Use configurable zoom (default 1.5)
+                    mat = fitz.Matrix(self.zoom, self.zoom)
                     pix = page.get_pixmap(matrix=mat)
 
                     # Convert to JPEG for much smaller file size (5-10x smaller than PNG)
                     # Quality 85 provides good balance between quality and file size
-                    image_data = pix.tobytes("jpeg", jpg_quality=85)
+                    image_data_compressed = pix.tobytes("jpeg", jpg_quality=85)
 
                 slides.append(Slide(
                     slide_number=page_num,
                     title=title.strip(),
                     content=content.strip(),
-                    image_data=image_data
+                    image_data=image_data,
+                    image_data_compressed=image_data_compressed
                 ))
         
         return slides

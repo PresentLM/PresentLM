@@ -108,7 +108,8 @@ def main():
         current_slide=slides[0],
         current_narration=narrations[0],
         all_slides=slides,
-        additional_context=context
+        additional_context=context,
+        use_vision=True  # Enable vision to include slide image in context
     )
     
     print(f"   A: {answer[:200]}...\n")

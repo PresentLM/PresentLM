@@ -911,18 +911,17 @@ def show_presentation_page():
 
             # Slide content
             if current_slide.image_data:
-                # Use cached function to avoid reprocessing images
-                cached_image = get_slide_image(current_slide.slide_number, current_slide.image_data)
+                # Show original high-res image
                 st.image(
-                    BytesIO(cached_image),
+                    BytesIO(current_slide.image_data),
                     width="stretch"
                 )
 
                 # Preload adjacent slides into cache for instant navigation
                 if current_idx > 0 and slides[current_idx - 1].image_data:
-                    get_slide_image(slides[current_idx - 1].slide_number, slides[current_idx - 1].image_data)
+                    pass  # No need to cache, always show original
                 if current_idx < len(slides) - 1 and slides[current_idx + 1].image_data:
-                    get_slide_image(slides[current_idx + 1].slide_number, slides[current_idx + 1].image_data)
+                    pass
             else:
                 st.markdown(current_slide.content)
 
@@ -1086,7 +1085,8 @@ def show_presentation_page():
                                     current_slide=slides[current_idx],
                                     current_narration=narrations[current_idx],
                                     all_slides=slides,
-                                    additional_context=None
+                                    additional_context=None,
+                                    use_vision=True  # Enable vision to include slide image in context
                                 )
 
                                 st.session_state.current_answer = answer

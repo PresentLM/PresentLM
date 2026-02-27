@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 import openai
-import numpy as np
 import soundfile as sf
 
 from ..utils.config import Config

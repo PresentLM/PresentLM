@@ -145,10 +145,10 @@ class NarrationGenerator:
 
         # Call LLM based on provider, pass image if available and vision is enabled
         if self.provider == "openai":
-            image_data = slide.image_data if (self.use_vision and slide.image_data) else None
+            image_data = slide.image_data_compressed if (self.use_vision and slide.image_data_compressed) else None
             return self._generate_openai(prompt, image_data=image_data)
         elif self.provider == "anthropic":
-            image_data = slide.image_data if (self.use_vision and slide.image_data) else None
+            image_data = slide.image_data_compressed if (self.use_vision and slide.image_data_compressed) else None
             return self._generate_anthropic(prompt, image_data=image_data)
 
     def _generate_single_narration_with_visual_history(
@@ -569,18 +569,38 @@ The narration should:
 3. Create smooth transitions between slides, referencing visual elements when appropriate.
 4. Be suitable for text-to-speech (avoid special characters, use natural speech).
 5. Be concise but complete (aim for 30-90 seconds per slide when spoken).
-
-Return the narration in the following JSON format:
-[
-  {{"slide_number": 1, "narration": "Narration for slide 1..."}},
-  {{"slide_number": 2, "narration": "Narration for slide 2..."}},
-  ...
-]
-
-Generate ONLY the JSON output, without any additional text or commentary.
 """
 
-        narration_text = ""  # Initialize to avoid unbound variable
+        # Define function schema for structured output
+        narration_function = {
+            "name": "generate_narrations",
+            "description": "Generate narrations for presentation slides",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "narrations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "slide_number": {
+                                    "type": "integer",
+                                    "description": "The slide number"
+                                },
+                                "narration": {
+                                    "type": "string",
+                                    "description": "The narration text for this slide"
+                                }
+                            },
+                            "required": ["slide_number", "narration"]
+                        }
+                    }
+                },
+                "required": ["narrations"]
+            }
+        }
+
+        narration_data = []  # Initialize to avoid unbound variable
 
         # Prepare content with all images
         if self.provider == "openai":
@@ -602,7 +622,7 @@ Generate ONLY the JSON output, without any additional text or commentary.
                         }
                     })
 
-            # Make single API call
+            # Make single API call with function calling
             messages = [
                 {"role": "system", "content": "You are an expert presenter creating engaging spoken narrations for slides."},
                 {"role": "user", "content": content}
@@ -614,9 +634,16 @@ Generate ONLY the JSON output, without any additional text or commentary.
                 model=model,
                 messages=messages,
                 temperature=Config.LLM_TEMPERATURE,
-                max_tokens=Config.LLM_MAX_TOKENS
+                max_tokens=Config.LLM_MAX_TOKENS,
+                functions=[narration_function],
+                function_call={"name": "generate_narrations"}
             )
-            narration_text = response.choices[0].message.content.strip()
+
+            # Extract function call response
+            import json
+            function_response = response.choices[0].message.function_call.arguments
+            parsed_response = json.loads(function_response)
+            narration_data = parsed_response["narrations"]
 
         elif self.provider == "anthropic":
             content = []
@@ -638,8 +665,19 @@ Generate ONLY the JSON output, without any additional text or commentary.
                         }
                     })
 
-            # Add prompt at the end
-            content.append({"type": "text", "text": prompt})
+            # Add prompt at the end (Anthropic doesn't support function calling with vision yet, fallback to JSON)
+            json_prompt = prompt + """
+
+Return the narration in the following JSON format:
+[
+  {"slide_number": 1, "narration": "Narration for slide 1..."},
+  {"slide_number": 2, "narration": "Narration for slide 2..."},
+  ...
+]
+
+Generate ONLY the JSON output, without any additional text or commentary."""
+
+            content.append({"type": "text", "text": json_prompt})
 
             model = self.model if "claude-3" in self.model.lower() else "claude-3-5-sonnet-20241022"
 
@@ -651,14 +689,14 @@ Generate ONLY the JSON output, without any additional text or commentary.
             )
             narration_text = response.content[0].text.strip()
 
-        # Parse JSON response
-        import json
-        try:
-            narration_data = json.loads(narration_text)
-        except json.JSONDecodeError:
-            print("Error: Failed to parse JSON response from LLM.")
-            print("Raw response:", narration_text)
-            raise ValueError("Failed to parse JSON response from LLM.")
+            # Parse JSON response for Anthropic
+            import json
+            try:
+                narration_data = json.loads(narration_text)
+            except json.JSONDecodeError:
+                print("Error: Failed to parse JSON response from Anthropic.")
+                print("Raw response:", narration_text)
+                raise ValueError("Failed to parse JSON response from Anthropic.")
 
         # Build narrations list
         narrations = []
@@ -714,34 +752,80 @@ The narration should:
 2. Provide clear transitions between topics.
 3. Be suitable for text-to-speech (avoid special characters, use natural speech).
 4. Be concise but complete (aim for 30-90 seconds per slide when spoken).
+"""
+
+        # Define function schema for structured output
+        narration_function = {
+            "name": "generate_narrations",
+            "description": "Generate narrations for presentation slides",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "narrations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "slide_number": {
+                                    "type": "integer",
+                                    "description": "The slide number"
+                                },
+                                "narration": {
+                                    "type": "string",
+                                    "description": "The narration text for this slide"
+                                }
+                            },
+                            "required": ["slide_number", "narration"]
+                        }
+                    }
+                },
+                "required": ["narrations"]
+            }
+        }
+
+        # Call LLM based on provider with function calling
+        narration_data = []
+        if self.provider == "openai":
+            import json
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an expert presenter creating engaging spoken narrations for slides."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=Config.LLM_TEMPERATURE,
+                max_tokens=Config.LLM_MAX_TOKENS,
+                functions=[narration_function],
+                function_call={"name": "generate_narrations"}
+            )
+
+            # Extract function call response
+            function_response = response.choices[0].message.function_call.arguments
+            parsed_response = json.loads(function_response)
+            narration_data = parsed_response["narrations"]
+
+            print("✅ Generated continuous narration using function calling (structured output)")
+        else:
+            # Fallback for other providers - use JSON parsing
+            narration_text = self._generate_openai(prompt + """
 
 Return the narration in the following JSON format:
 [
-  {{"slide_number": 1, "narration": "Narration for slide 1."}},
-  {{"slide_number": 2, "narration": "Narration for slide 2."}},
+  {"slide_number": 1, "narration": "Narration for slide 1."},
+  {"slide_number": 2, "narration": "Narration for slide 2."},
   ...
 ]
 
-Generate ONLY the JSON output, without any additional text or commentary.
-"""
+Generate ONLY the JSON output, without any additional text or commentary.""")
 
-        # Call LLM based on provider
-        narration_text = ""  # Initialize narration_text to avoid unbound variable error
-        if self.provider == "openai":
-            narration_text = self._generate_openai(prompt)
-
-        # Debugging: Log the raw response from the LLM
-        print("Raw LLM Response:", narration_text)
-
-        # Parse the JSON response from the LLM
-        import json
-        try:
-            narration_data = json.loads(narration_text)
-        except json.JSONDecodeError:
-            # Log the error and provide a fallback
-            print("Error: Failed to parse JSON response from LLM.")
-            print("Raw response was:", narration_text)
-            raise ValueError("Failed to parse JSON response from LLM.")
+            import json
+            try:
+                narration_data = json.loads(narration_text)
+            except json.JSONDecodeError:
+                print("Error: Failed to parse JSON response from LLM.")
+                print("Raw response:", narration_text)
+                raise ValueError("Failed to parse JSON response from LLM.")
 
         narrations = []
         for slide in slides:
