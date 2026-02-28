@@ -77,10 +77,6 @@ const config: Config = {
     },
     navbar: {
       title: "PresentLM",
-      logo: {
-        alt: "My Site Logo",
-        src: "img/PresentLM-logo.png",
-      },
       items: [
         {
           type: "docSidebar",
@@ -97,7 +93,7 @@ const config: Config = {
     },
     footer: {
       style: "dark",
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} PresentLM. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

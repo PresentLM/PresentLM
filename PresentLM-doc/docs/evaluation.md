@@ -7,41 +7,47 @@ sidebar_position: 4
 ## Research Question
 
 <div style={{ padding: '1.5em', borderRadius: '8px', backgroundColor: 'var(--ifm-color-emphasis-100)', margin: '2em 0', textAlign: 'center', fontSize: '1.2em' }}>
-  <strong>Can AI-generated, interactive narration improve comprehension, engagement, and rehearsal quality compared to static slide decks?</strong>
+  <strong>How do users perceive AI-generated, interactive narration in terms of comprehension, engagement, and usability?</strong>
 </div>
 
 ---
 
 ## Evaluation Method
 
-We propose a **mixed-method evaluation** focusing on both learning outcomes and user experience.
+We conduct a **single-condition mixed-method evaluation** focusing on user perception and experience after interacting with PresentLM.
 
-### Qualitative Measures
+Participants use the system to experience an AI-generated, narrated presentation with interactive questioning capabilities. Immediately afterward, they complete a structured questionnaire assessing comprehension, engagement, and usability, followed by optional open-ended feedback.
 
-<div style={{ display: 'flex', flexWrap: 'wrap', gap: '1em', margin: '2em 0' }}>
-  <div style={{ flex: '1 1 45%', padding: '1.5em', borderRadius: '8px', backgroundColor: 'var(--ifm-color-emphasis-100)' }}>
-    <h4>📝 Semi-structured Interviews</h4>
-    <p>Conducted with students, educators, and professionals to gather in-depth feedback on their experience.</p>
-  </div>
-  
-  <div style={{ flex: '1 1 45%', padding: '1.5em', borderRadius: '8px', backgroundColor: 'var(--ifm-color-emphasis-100)' }}>
-    <h4>👀 Behavioral Observations</h4>
-    <p>Observations of rehearsal behavior and interaction patterns during system use.</p>
-  </div>
-</div>
+---
 
 ### Quantitative Measures
 
-Post-interaction questionnaires measuring:
+Post-interaction questionnaires assess the following dimensions using Likert-scale items:
 
 <div style={{ margin: '1.5em 0' }}>
 
-- **Perceived clarity of explanations**
-- **Confidence in understanding**
-- **Sense of control and trust**
-- **Engagement compared to static slides**
+- **Perceived comprehension of the material**
+- **Engagement during the presentation**
+- **Learning confidence**
+- **Overall system usability (SUS)**
 
 </div>
+
+These measures evaluate whether users experience the system as understandable, engaging, confidence-supporting, and usable.
+
+---
+
+### Qualitative Measures (Optional)
+
+To complement the quantitative ratings, participants are invited to provide open-ended feedback, including:
+
+- What they liked most about the system
+- Aspects that felt confusing or unnatural
+- Thoughts on the interactive questioning feature
+- Suggestions for improvement
+- Situations in which they would use the system
+
+These responses provide deeper insight into user experience, perceived strengths, and potential design improvements.
 
 ---
 
@@ -49,18 +55,18 @@ Post-interaction questionnaires measuring:
 
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1em', margin: '2em 0' }}>
   <div style={{ flex: '1 1 100%', padding: '1.5em', borderRadius: '8px', backgroundColor: 'var(--ifm-color-primary-lightest)' }}>
-    <h3>H1: Enhanced Comprehension</h3>
-    <p>Users will report <strong>higher comprehension</strong> when using PresentLM compared to reviewing slides alone.</p>
+    <h3>H1: Perceived Comprehension</h3>
+    <p>Users perceive PresentLM as supporting their understanding of the presented material.</p>
   </div>
   
   <div style={{ flex: '1 1 100%', padding: '1.5em', borderRadius: '8px', backgroundColor: 'var(--ifm-color-primary-lightest)' }}>
-    <h3>H2: Increased Engagement</h3>
-    <p>Interactive questioning <strong>increases perceived engagement</strong> and learning confidence.</p>
+    <h3>H2: Engagement & Learning Confidence</h3>
+    <p>Users perceive PresentLM as engaging and confidence-enhancing.</p>
   </div>
   
   <div style={{ flex: '1 1 100%', padding: '1.5em', borderRadius: '8px', backgroundColor: 'var(--ifm-color-primary-lightest)' }}>
-    <h3>H3: Improved Rehearsal Quality</h3>
-    <p>Presenters will find AI narration <strong>helpful for evaluating pacing and transitions</strong>.</p>
+    <h3>H3: Usability</h3>
+    <p>PresentLM demonstrates acceptable usability as measured by a standardized usability scale.</p>
   </div>
 </div>
 
@@ -68,19 +74,19 @@ Post-interaction questionnaires measuring:
 
 ## Post-Interaction Questionnaires
 
-Questionnaires will assess the following dimensions:
+Questionnaires focus on key experiential dimensions:
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1em', margin: '2em 0' }}>
   <div style={{ padding: '1.5em', borderRadius: '8px', textAlign: 'center', backgroundColor: 'var(--ifm-color-emphasis-200)' }}>
-    <strong>Explainability of Content</strong>
+    <strong>Perceived Comprehension</strong>
   </div>
   <div style={{ padding: '1.5em', borderRadius: '8px', textAlign: 'center', backgroundColor: 'var(--ifm-color-emphasis-200)' }}>
-    <strong>Transparency of AI Behavior</strong>
+    <strong>Engagement & Confidence</strong>
   </div>
   <div style={{ padding: '1.5em', borderRadius: '8px', textAlign: 'center', backgroundColor: 'var(--ifm-color-emphasis-200)' }}>
-    <strong>Perceived Usefulness</strong>
+    <strong>System Usability</strong>
   </div>
   <div style={{ padding: '1.5em', borderRadius: '8px', textAlign: 'center', backgroundColor: 'var(--ifm-color-emphasis-200)' }}>
-    <strong>Willingness to Reuse</strong>
+    <strong>User Feedback & Improvement Suggestions</strong>
   </div>
 </div>

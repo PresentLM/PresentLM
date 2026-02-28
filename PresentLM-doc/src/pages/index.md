@@ -2,12 +2,8 @@
 title: Homepage
 ---
 
-<h2 style={{ textAlign: 'center', padding: '0.5em 1em', borderRadius: '8px' }}>
-  Slides are everywhere, but do they really communicate the full message?
-</h2>
-
 <div style={{ display: 'flex', justifyContent: 'center', margin: '2em 0' }}>
-  <img src="img/PresentLM.png" alt="PresentLM" style={{ width: '50%', height: 'auto' }} />
+  <img src="img/Poster.jpg" alt="PresentLM" style={{ width: '100%', height: 'auto' }} />
 </div>
 
 ## Elevator Pitch

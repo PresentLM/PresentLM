@@ -211,21 +211,16 @@ def show_upload_page():
 
         additional_context = st.text_area(
             "Additional Context (optional)",
-            placeholder="Lecture notes, supporting materials, or context for narration generation...",
+            placeholder="Example: 'Explain to a 10 year old child with no technical knowledge' or 'Use simple language for beginners' or 'Include real-world examples'",
+            help="Specify target audience, complexity level, or presentation approach. This helps tailor the narration style and language.",
             height=150
-        )
-
-        narration_style = st.selectbox(
-            "Narration Style",
-            ["educational", "professional", "casual"]
         )
 
         if uploaded_file:
             if st.button("Generate Presentation", type="primary", width="stretch"):
                 process_presentation(
                     uploaded_file,
-                    additional_context,
-                    narration_style
+                    additional_context
                 )
 
     
@@ -270,7 +265,6 @@ def show_upload_page():
 def process_presentation(
     uploaded_file,
     context,
-    narration_style,
     llm_model='gpt-4o-mini',
     test_mode=False,
     tts_voice=None,  # Will use Config.TTS_VOICE if None
@@ -329,7 +323,6 @@ TEST_MODE=true
         narrations = narration_gen.generate_narration(
             slides,
             context=context if context else None,
-            style=narration_style,
             mode="continuous"
         )
 
@@ -423,7 +416,6 @@ TEST_MODE=true
             "num_slides": len(slides),
             "llm_model": llm_model,
             "tts_voice": tts_voice,
-            "narration_style": narration_style,
             "test_mode": test_mode
         }
         
