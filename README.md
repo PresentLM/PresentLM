@@ -1,139 +1,116 @@
 # PresentLM
 
-An AI-driven presentation system that turns static slide decks into interactive, spoken experiences with real-time Q&A support.
+Transform presentations into interactive, narrated experiences with AI-powered Q&A.
 
 ## Features
 
-- **Slide Parsing**: Extract content from PDF and PowerPoint presentations
-- **AI Narration**: Generate natural narration for each slide using OpenAI GPT models
-- **Text-to-Speech**: Convert narration to speech (optional, can be disabled in test mode)
-- **Auto-Play Mode**: Automatic audio playback with synchronized slide advancement
-  - Click Play to start auto-play through the presentation
-  - Audio plays for each slide with automatic progression
-  - 1.5 second pause between slides
-  - Visual progress indicator showing playback status
-  - Pause/Resume controls
-- **Interactive Q&A**: Ask questions during the presentation via text or audio
-  - Automatically pauses audio playback when asking
-  - Ask questions using text input or voice recording
-  - Get AI-powered answers based on slide content
-  - Resume playback from current slide after answering
-- **Slide Navigation**: Manual controls (Previous/Next) or automatic progression
+✨ **AI Narration** - Automatic spoken explanations for slides  
+🎙️ **Text-to-Speech** - OpenAI or local Qwen TTS  
+💬 **Interactive Q&A** - Ask questions via text or voice  
+▶️ **Auto-Play** - Synchronized audio and slide progression  
+📄 **Multi-Format** - Supports PDF and PowerPoint files
 
-## Technology Stack
+---
 
-- **LLM**: OpenAI GPT-4o-mini/GPT-4o for narration and Q&A
-- **TTS**: OpenAI TTS with multiple voice options
-- **STT**: OpenAI Whisper for voice question transcription
-- **UI**: Streamlit for interactive interface
-- **Parsing**: PyMuPDF (PDF), python-pptx (PowerPoint)
-
-## Installation
+## Quick Start (Docker)
 
 ```bash
-# Activate virtual environment
-.venv\Scripts\activate  # On Windows
+# 1. Clone and enter directory
+git clone https://github.com/PresentLM/PresentLM.git
+cd PresentLM
 
-# Dependencies already installed
+# 2. Create .env file with your API key
+echo "OPENAI_API_KEY=sk-your-key-here" > .env
 
-# Configure environment
-# Edit .env file with your OpenAI API key
+# 3. Start with Docker
+docker-compose up
 ```
 
-## Quick Start
+**That's it!** Upload a presentation and start.
 
-1. **Set up your API key** in `.env`:
-   ```
-   OPENAI_API_KEY=sk-your-key-here
-   TTS_PROVIDER=openai  # or qwen for local TTS (free!)
-   ```
-   
-   For Qwen TTS (runs locally, no API key needed):
-   ```
-   TTS_PROVIDER=qwen
-   TTS_VOICE=en-Female1  # or zh-Female1 for Chinese
-   ```
-   
-   See `TTS_CONFIGURATION.md` for detailed TTS setup instructions.
+---
 
-2. **Run the application**:
-   ```bash
-   streamlit run src/ui/app.py
-   ```
+## Quick Start (Local)
 
-3. **Upload a presentation** (PDF or PPTX) OR load a saved one
+```bash
+# 1. Clone and enter directory
+git clone https://github.com/PresentLM/PresentLM.git
+cd PresentLM
 
-4. **Configure settings** in the sidebar:
-   - Choose LLM model (gpt-4o-mini for testing, gpt-4o for production)
-   - Enable/disable Test Mode (skips audio generation to save tokens)
-   - Select voice (if audio enabled)
-   - Choose narration style
+# 2. Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate   # Windows
 
-## Auto-Play Presentation Mode
+# 3. Install dependencies
+pip install -r requirements.txt
 
-**Starting Auto-Play**:
-1. Ensure audio has been generated (Test Mode disabled)
-2. Click the "▶ Play" button in the navigation bar
-3. Audio will play automatically for each slide
-4. Slides advance automatically after audio completes (with 1.5s pause)
-5. Progress bar shows playback status and time remaining
+# 4. Configure API key
+cp .env.example .env
+# Edit .env and add: OPENAI_API_KEY=sk-your-key-here
 
-**Controlling Playback**:
-- **⏸ Pause**: Stop auto-play (button changes to Play)
-- **▶ Play**: Resume or start auto-play
-- **Previous/Next**: Manual navigation stops auto-play
-- **Ask Question**: Automatically pauses playback
+# 5. Run application
+streamlit run src/ui/app.py
+```
 
-**Q&A During Auto-Play**:
-1. Playback pauses automatically when you ask a question
-2. Get your answer from the AI
-3. Click "Yes, Continue" to resume playback from current slide
-4. Audio restarts from beginning of current slide
+---
 
-## Save & Load Presentations
+## Configuration
 
-**Automatic Saving**: Every processed presentation is automatically saved with:
-- Slide content and images
-- Generated narrations
-- Audio files (if generated)
-- Processing metadata
+### Required
 
-**Loading Saved Presentations**:
-1. Click "Load Saved" tab on the home page
-2. Browse previously processed presentations
-3. Click "Load" to instantly reopen any presentation
-4. No need to regenerate - everything is preserved!
+```bash
+OPENAI_API_KEY=sk-your-key-here
+```
 
-**Export Narrations**:
-- Click "Export Text" button during presentation
-- Download all narrations as a formatted text file
-- Includes slide numbers, text, and duration estimates
+### Optional
 
-## Using Interactive Q&A
+```bash
+# LLM Settings
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
 
-1. **Ask your question** anytime during the presentation:
-   - **Text mode**: Type your question and click "Ask Question"
-   - **Audio mode**: Click the microphone to record your question
-2. **Playback pauses automatically** when you ask
-3. **Review the answer** generated by AI
-4. **Provide feedback**:
-   - Click "Yes, Continue" to resume playback
-   - Click "No, Ask Again" to ask a follow-up question
-   - **Audio mode**: Click the microphone to record your question
-3. **Review the answer** generated by AI
-4. **Provide feedback**:
-   - Click "Yes, Continue" to resume the presentation
-   - Click "No, Ask Again" to ask a follow-up question
+# TTS Settings (OpenAI or local Qwen)
+TTS_PROVIDER=openai          # or "qwen" for local (free)
+TTS_VOICE=alloy              # OpenAI: nova, alloy, echo, fable
+# TTS_VOICE=en-Female1       # Qwen: en-Female1, zh-Female1
 
-## Data Storage
+# Test Mode (skip audio generation to save API costs)
+TEST_MODE=false
+```
 
-All presentation data is saved in the `data/` directory:
-- `data/slides/` - Uploaded presentation files
-- `data/narrations/` - Generated narrations (JSON)
-- `data/audio/` - Generated audio files (MP3)
-- `data/*_metadata.json` - Presentation metadata
-- `data/*_slides.json` - Slide content with images (base64 encoded)
-- `data/*_narrations.json` - Narration texts
-- `data/*_audio.json` - Audio file paths and info
+---
 
-Each presentation is identified by a timestamp (YYYYMMDD_HHMMSS) making it easy to find and reload specific versions.
+## Usage
+
+### Upload & Generate
+
+1. Upload PDF or PPTX file
+2. Add optional context (e.g., "Explain to a 10-year-old")
+3. Click **Generate Presentation**
+4. Wait for processing (narration + optional audio)
+
+### Present
+
+- Use **Play** button for auto-play mode
+- **Previous/Next** for manual navigation
+- Click **Q&A** panel to ask questions (text or voice)
+- Export narrations as text or PDF
+
+### Save & Load
+
+- Presentations auto-save after generation
+- Load saved presentations from **Load Saved** tab
+- All data stored in `data/` directory
+
+---
+
+## Tech Stack
+
+- **UI**: Streamlit
+- **LLM**: OpenAI GPT-4o / GPT-4o-mini
+- **TTS**: OpenAI TTS or Qwen3-TTS (local)
+- **STT**: OpenAI Whisper
+- **Parse**: PyMuPDF (PDF), python-pptx (PPTX)
+
+---
