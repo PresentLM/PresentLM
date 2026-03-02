@@ -1,77 +1,120 @@
 # PresentLM
 
-Transform presentations into interactive, narrated experiences with AI-powered Q&A.
+PresentLM transforms presentations into interactive, narrated experiences with AI-powered question and answer capabilities.
 
 ## Features
 
-✨ **AI Narration** - Automatic spoken explanations for slides  
-🎙️ **Text-to-Speech** - OpenAI or local Qwen TTS  
-💬 **Interactive Q&A** - Ask questions via text or voice  
-▶️ **Auto-Play** - Synchronized audio and slide progression  
-📄 **Multi-Format** - Supports PDF and PowerPoint files
+- AI-generated narration for presentation slides
+- Text-to-speech (TTS) using OpenAI or local Qwen TTS
+- Interactive Q&A via text or voice
+- Auto-play for synchronized audio and slide progression
+- Supports PDF and PowerPoint files
 
 ---
 
-## Quick Start (Docker)
+## Project Structure
 
-```bash
-# 1. Clone and enter directory
-git clone https://github.com/PresentLM/PresentLM.git
-cd PresentLM
-
-# 2. Create .env file with your API key
-echo "OPENAI_API_KEY=sk-your-key-here" > .env
-
-# 3. Start with Docker
-docker-compose up
-```
-
-**That's it!** Upload a presentation and start.
+- `src/` - Main application source code (UI, core logic, utilities)
+- `data/` - Stores generated presentations, audio, narrations, and related metadata
+- `scripts/` - Utility scripts (e.g., for plotting benchmarks)
+- `PresentLM-doc/` - Documentation site (Docusaurus)
+- `Dockerfile`, `Dockerfile.cpu` - Docker build files for different environments
+- `docker-compose.yml` - Docker Compose configuration
+- `requirements.txt` - Python dependencies
 
 ---
 
-## Quick Start (Local)
+## Setup Instructions
 
-```bash
-# 1. Clone and enter directory
-git clone https://github.com/PresentLM/PresentLM.git
-cd PresentLM
+### 1. Local Setup
 
-# 2. Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
+#### Prerequisites
+- Python 3.10 or newer
+- [pip](https://pip.pypa.io/en/stable/)
+- (Recommended) [virtualenv](https://virtualenv.pypa.io/en/latest/)
 
-# 3. Install dependencies
-pip install -r requirements.txt
+#### Steps
 
-# 4. Configure API key
-cp .env.example .env
-# Edit .env and add: OPENAI_API_KEY=sk-your-key-here
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/PresentLM/PresentLM.git
+   cd PresentLM
+   ```
+2. **Create and activate a virtual environment**
+   - On Linux/Mac:
+     ```bash
+     python -m venv .venv
+     source .venv/bin/activate
+     ```
+   - On Windows:
+     ```bash
+     python -m venv .venv
+     .venv\Scripts\activate
+     ```
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Configure environment variables**
+   - Copy the example environment file and edit it:
+     ```bash
+     cp .env.example .env
+     # Edit .env and set OPENAI_API_KEY=your-openai-key
+     ```
+5. **Run the application**
+   ```bash
+   streamlit run src/ui/app.py
+   ```
 
-# 5. Run application
-streamlit run src/ui/app.py
-```
+---
+
+### 2. Docker Setup
+
+#### Prerequisites
+- [Docker](https://www.docker.com/get-started)
+- [Docker Compose](https://docs.docker.com/compose/)
+
+#### Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/PresentLM/PresentLM.git
+   cd PresentLM
+   ```
+2. **Create the environment file**
+   ```bash
+   echo "OPENAI_API_KEY=your-openai-key" > .env
+   # Optionally edit .env for further configuration
+   ```
+3. **Start the application using Docker Compose**
+   ```bash
+   docker-compose up
+   ```
+   This will build and start the application. Access it via your browser at the address shown in the terminal (typically http://localhost:8501).
+
+#### Using Provided Scripts
+- On Windows, you can use `docker-start.bat` to start the application.
+- On Linux/Mac, use `docker-start.sh`.
 
 ---
 
 ## Configuration
 
-### Required
+All configuration is managed via the `.env` file in the project root.
 
-```bash
-OPENAI_API_KEY=sk-your-key-here
+### Required
+```
+OPENAI_API_KEY=your-openai-key
 ```
 
 ### Optional
-
-```bash
+```
 # LLM Settings
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-4o-mini
 
 # TTS Settings (OpenAI or local Qwen)
-TTS_PROVIDER=openai          # or "qwen" for local (free)
+TTS_PROVIDER=openai          # or "qwen" for local
 TTS_VOICE=alloy              # OpenAI: nova, alloy, echo, fable
 # TTS_VOICE=en-Female1       # Qwen: en-Female1, zh-Female1
 
@@ -83,25 +126,11 @@ TEST_MODE=false
 
 ## Usage
 
-### Upload & Generate
-
-1. Upload PDF or PPTX file
-2. Add optional context (e.g., "Explain to a 10-year-old")
-3. Click **Generate Presentation**
-4. Wait for processing (narration + optional audio)
-
-### Present
-
-- Use **Play** button for auto-play mode
-- **Previous/Next** for manual navigation
-- Click **Q&A** panel to ask questions (text or voice)
-- Export narrations as text or PDF
-
-### Save & Load
-
-- Presentations auto-save after generation
-- Load saved presentations from **Load Saved** tab
-- All data stored in `data/` directory
+1. Upload a PDF or PPTX file via the web interface.
+2. Optionally, add context (e.g., "Explain to a 10-year-old").
+3. Click "Generate Presentation" and wait for processing.
+4. Use the player controls to present, navigate, and interact with the Q&A panel.
+5. Presentations are auto-saved in the `data/` directory and can be loaded later.
 
 ---
 
@@ -111,6 +140,4 @@ TEST_MODE=false
 - **LLM**: OpenAI GPT-4o / GPT-4o-mini
 - **TTS**: OpenAI TTS or Qwen3-TTS (local)
 - **STT**: OpenAI Whisper
-- **Parse**: PyMuPDF (PDF), python-pptx (PPTX)
-
----
+- **Parsing**: PyMuPDF (PDF), python-pptx (PPTX)

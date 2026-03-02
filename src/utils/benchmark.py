@@ -5,7 +5,7 @@ Records timing data for each component in the pipeline and provides export funct
 
 import time
 import json
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from pathlib import Path
 from datetime import datetime

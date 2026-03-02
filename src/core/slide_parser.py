@@ -66,14 +66,13 @@ class SlideParser:
         self.use_vision = use_vision
         self.zoom = zoom
 
-    def parse(self, file_path: Path, support_files: Optional[List[Path]] = None) -> List[Slide]:
+    def parse(self, file_path: Path) -> List[Slide]:
         """
         Parse a slide deck file.
         
         Args:
             file_path: Path to the slide deck (PDF or PPT)
-            support_files: Optional list of supporting documents
-            
+
         Returns:
             List of Slide objects
         """
@@ -192,22 +191,3 @@ class SlideParser:
             ))
         
         return slides
-    
-    def extract_with_vision(self, slide: Slide) -> str:
-        """
-        Extract additional information using vision models (VLM).
-        Useful for image-heavy slides with diagrams, charts, etc.
-        
-        Args:
-            slide: Slide with image_data
-            
-        Returns:
-            Enhanced description of slide content
-        """
-        if not slide.image_data:
-            return slide.content
-        
-        # TODO: Implement vision model integration
-        # This would call GPT-4 Vision, Claude 3, or Gemini Vision
-        # For now, return original content
-        return slide.content

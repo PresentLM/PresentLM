@@ -4,7 +4,7 @@ services:
   presentlm:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.cpu
     container_name: presentlm-app
     ports:
       - "8501:8501"
@@ -16,22 +16,12 @@ services:
       # Mount Hugging Face cache for model persistence
       - ./cache/huggingface:/app/.cache/huggingface
     environment:
-      # CUDA settings
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       # Python settings
       - PYTHONUNBUFFERED=1
       # App settings (can be overridden by .env file)
-      - TTS_PROVIDER=${TTS_PROVIDER:-qwen}
+      - TTS_PROVIDER=${TTS_PROVIDER:-openai}
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
       - LLM_USE_VISION=${LLM_USE_VISION:-true}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     restart: unless-stopped
     stdin_open: true
     tty: true

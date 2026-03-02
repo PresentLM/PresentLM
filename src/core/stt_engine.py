@@ -5,7 +5,6 @@ Speech-to-Text Engine - Converts user voice input to text for questions.
 from pathlib import Path
 from typing import Optional, Union
 import openai
-import io
 
 from ..utils.config import Config
 from ..utils.benchmark import get_benchmark_tracker
@@ -28,11 +27,7 @@ class STTEngine:
         if self.provider == "openai":
             self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
     
-    def transcribe(
-        self,
-        audio_input: Union[Path, bytes],
-        language: str = "en-US"
-    ) -> str:
+    def transcribe(self, audio_input: Union[Path, bytes]) -> str:
         """
         Transcribe audio to text.
         

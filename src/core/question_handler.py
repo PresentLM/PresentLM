@@ -3,7 +3,7 @@ Question Handler - Answers user questions during presentation using LLM.
 Maintains context of the current slide and presentation flow.
 """
 
-from typing import List, Optional, Dict
+from typing import List, Optional
 from dataclasses import dataclass
 import openai
 
@@ -25,12 +25,11 @@ class QuestionAnswer:
 class QuestionHandler:
     """Handle user questions during presentation."""
     
-    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, model: Optional[str] = None):
         """
         Initialize question handler.
         
         Args:
-            provider: LLM provider (always uses openai)
             model: Model name
         """
         self.provider = "openai"

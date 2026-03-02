@@ -11,7 +11,7 @@ Usage:
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np

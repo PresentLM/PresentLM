@@ -13,12 +13,11 @@ from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.pdfgen import canvas
 from PIL import Image as PILImage
 
 # Add src to path
@@ -484,7 +483,7 @@ def load_saved_presentation(timestamp: str):
 
 
 @st.cache_data
-def get_slide_image(slide_number: int, image_data: bytes) -> bytes:
+def get_slide_image(image_data: bytes) -> bytes:
     """Cache slide images to avoid reprocessing on every rerender.
     Also optimizes images for faster display.
 
@@ -1068,7 +1067,6 @@ def show_presentation_page():
                         with st.spinner("Generating answer..."):
                             try:
                                 question_handler = QuestionHandler(
-                                    provider="openai",
                                     model=st.session_state.get('llm_model', 'gpt-4o-mini')
                                 )
 
